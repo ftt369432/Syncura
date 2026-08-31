@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, X, Send, Mic, Volume2, Bot, User, Shield, Stethoscope, RefreshCw, StopCircle } from 'lucide-react';
+import { Sparkles, X, Send, Mic, Volume2, Bot, User, Shield, Stethoscope, RefreshCw, StopCircle, Key, Check } from 'lucide-react';
 import { GeminiClinicalService, ChatMessage } from '@/services/geminiClinicalService';
 import { useHouseholdStore } from '@/stores/useHouseholdStore';
 import { useMedicationStore } from '@/stores/useMedicationStore';
@@ -34,13 +34,36 @@ export const AiHealthCompanionModal: React.FC<AiHealthCompanionModalProps> = ({
   const [inputPrompt, setInputPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [keySavedNotice, setKeySavedNotice] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const existingKey = GeminiClinicalService.getApiKey();
+    setApiKeyInput(existingKey);
+    if (!existingKey) {
+      setShowKeyConfig(true); // Automatically show key prompt if not configured
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   if (!isOpen) return null;
+
+  const handleSaveApiKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (apiKeyInput.trim()) {
+      GeminiClinicalService.setApiKey(apiKeyInput.trim());
+      setKeySavedNotice(true);
+      setTimeout(() => {
+        setKeySavedNotice(false);
+        setShowKeyConfig(false);
+      }, 1000);
+    }
+  };
 
   const handleSend = async (customText?: string) => {
     const textToSend = customText || inputPrompt;
@@ -134,10 +157,39 @@ export const AiHealthCompanionModal: React.FC<AiHealthCompanionModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowKeyConfig(!showKeyConfig)}
+              className="p-2 rounded-xl text-slate-400 hover:text-brand-500 transition"
+              title="Configure Gemini API Key"
+            >
+              <Key className="w-4 h-4" />
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* API Key Configuration Dropdown */}
+        {showKeyConfig && (
+          <form onSubmit={handleSaveApiKey} className="p-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-xs">
+            <input
+              type="password"
+              placeholder="Paste Google Gemini API Key"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-mono"
+            />
+            <button
+              type="submit"
+              className="py-1.5 px-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold transition flex items-center gap-1"
+            >
+              {keySavedNotice ? <Check className="w-3.5 h-3.5" /> : 'Save Key'}
+            </button>
+          </form>
+        )}
 
         {/* Quick Suggestion Chips */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950 border-b border-slate-200/60 dark:border-slate-800 flex gap-2 overflow-x-auto text-xs shrink-0 scrollbar-none">
@@ -154,16 +206,16 @@ export const AiHealthCompanionModal: React.FC<AiHealthCompanionModalProps> = ({
             ☕ Coffee & Thyroid Timing
           </button>
           <button
+            onClick={() => handleSend('What is the interaction between Lisinopril and coffee or Eleanor’s history?')}
+            className="py-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-brand-500 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap transition shadow-sm"
+          >
+            🫀 Lisinopril History Check
+          </button>
+          <button
             onClick={() => handleSend('Explain Eleanor’s Quest Diagnostics metabolic panel and HbA1c.')}
             className="py-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-brand-500 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap transition shadow-sm"
           >
             🧪 Explain Recent Labs
-          </button>
-          <button
-            onClick={() => handleSend('Generate 3 smart questions to ask Dr. Chen at tomorrow’s visit.')}
-            className="py-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-brand-500 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap transition shadow-sm"
-          >
-            🩺 Questions for Dr. Chen
           </button>
         </div>
 
@@ -220,7 +272,7 @@ export const AiHealthCompanionModal: React.FC<AiHealthCompanionModalProps> = ({
               </div>
               <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-500 text-xs flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-                <span>Synthesizing clinical pharmacology & records...</span>
+                <span>Synthesizing clinical pharmacology & records with Gemini...</span>
               </div>
             </div>
           )}

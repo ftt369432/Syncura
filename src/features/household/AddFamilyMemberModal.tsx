@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { User, X, Check, Camera, Sparkles, QrCode, Plus, Heart, Shield, Calendar } from 'lucide-react';
+import { User, X, Check, Camera, Sparkles, QrCode, Plus, Heart, Shield, Calendar, Building2, AlertTriangle } from 'lucide-react';
 import { useHouseholdStore } from '@/stores/useHouseholdStore';
+import { useBillingStore } from '@/stores/useBillingStore';
 import { Profile } from '@/types';
 
 const PRESET_AVATARS = [
@@ -16,7 +17,8 @@ const COMMON_ALLERGIES = ['Penicillin', 'Sulfa Drugs', 'Aspirin', 'NSAIDs', 'Cod
 const COMMON_CONDITIONS = ['High Blood Pressure', 'Type 2 Diabetes', 'Atrial Fibrillation', 'Arthritis', 'Kidney Disease', 'Asthma'];
 
 export const AddFamilyMemberModal: React.FC = () => {
-  const { isAddMemberModalOpen, closeAddMemberModal, addProfile, household, openPairingModal } = useHouseholdStore();
+  const { isAddMemberModalOpen, closeAddMemberModal, addProfile, household, openPairingModal, profiles } = useHouseholdStore();
+  const { currentTier, openEnterprisePaywall } = useBillingStore();
 
   const [name, setName] = useState('');
   const [role, setRole] = useState<'dependent' | 'caregiver' | 'self'>('dependent');
@@ -153,8 +155,37 @@ export const AddFamilyMemberModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 text-xs">
+        {/* Form or Commercial Cap Shield */}
+        {profiles.length >= 5 && currentTier !== 'enterprise_agency' ? (
+          <div className="p-6 text-center space-y-4 animate-fadeIn">
+            <div className="w-14 h-14 rounded-3xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-500/20 shadow-sm">
+              <Building2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full">
+                <AlertTriangle className="w-3 h-3" /> Commercial Provider Policy
+              </span>
+              <h4 className="text-base font-black text-slate-900 dark:text-white">
+                Commercial Agency Bracket Required
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
+                Personal and Family accounts support up to 5 family members for non-commercial domestic use. Healthcare facilities, assisted living homes, and home health agencies managing multi-resident rosters require an Enterprise Agency eMAR license.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                closeAddMemberModal();
+                openEnterprisePaywall();
+              }}
+              className="w-full py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>View Enterprise Agency License ($199/mo) &rarr;</span>
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 text-xs">
           {/* Avatar / Photo Picker */}
           <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <div className="relative group shrink-0">
@@ -357,6 +388,7 @@ export const AddFamilyMemberModal: React.FC = () => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

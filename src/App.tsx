@@ -12,6 +12,7 @@ import { CloudConnectionModal } from '@/features/cloud/CloudConnectionModal';
 import { AuthModal } from '@/features/auth/AuthModal';
 import { LoggedOutAuthGateView } from '@/features/auth/LoggedOutAuthGateView';
 import { CaregiverQrPairingModal } from '@/features/household/CaregiverQrPairingModal';
+import { AddFamilyMemberModal } from '@/features/household/AddFamilyMemberModal';
 import { PaywallModal } from '@/features/billing/PaywallModal';
 import { ClinicalAlertsInboxModal } from '@/features/alerts/ClinicalAlertsInboxModal';
 import { AiHealthCompanionModal } from '@/features/ai/AiHealthCompanionModal';
@@ -21,6 +22,7 @@ import { useCloudConfigStore } from '@/stores/useCloudConfigStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useBillingStore } from '@/stores/useBillingStore';
 import { useAlertsStore } from '@/stores/useAlertsStore';
+import { useHouseholdStore } from '@/stores/useHouseholdStore';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'app'>('app');
@@ -41,6 +43,7 @@ export default function App() {
   const { currentUser, loginAsDemoPersona, logout } = useAuthStore();
   const { openPaywall } = useBillingStore();
   const { openInbox, getUnreadCount } = useAlertsStore();
+  const { isPairingModalOpen: isHouseholdPairingOpen, closePairingModal } = useHouseholdStore();
 
   const unreadAlerts = getUnreadCount();
 
@@ -477,9 +480,13 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
       />
       <CaregiverQrPairingModal
-        isOpen={isPairingModalOpen}
-        onClose={() => setIsPairingModalOpen(false)}
+        isOpen={isPairingModalOpen || isHouseholdPairingOpen}
+        onClose={() => {
+          setIsPairingModalOpen(false);
+          closePairingModal();
+        }}
       />
+      <AddFamilyMemberModal />
       <AiHealthCompanionModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}

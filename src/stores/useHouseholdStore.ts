@@ -16,6 +16,12 @@ interface HouseholdState {
   addVoiceIntakeNote: (profileId: string, note: VoiceIntakeNote) => void;
   postFamilyMessage: (message: Omit<FamilyMessage, 'id' | 'created_at'>) => void;
   setHousehold: (household: Household) => void;
+  isPairingModalOpen: boolean;
+  openPairingModal: () => void;
+  closePairingModal: () => void;
+  isAddMemberModalOpen: boolean;
+  openAddMemberModal: () => void;
+  closeAddMemberModal: () => void;
 }
 
 const loadInitialProfiles = (): Profile[] => {
@@ -62,6 +68,13 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
   profiles: loadInitialProfiles(),
   activeProfileId: 'prof-mom',
   messages: initialSeedData.familyMessages,
+  isPairingModalOpen: false,
+  isAddMemberModalOpen: false,
+
+  openPairingModal: () => set({ isPairingModalOpen: true }),
+  closePairingModal: () => set({ isPairingModalOpen: false }),
+  openAddMemberModal: () => set({ isAddMemberModalOpen: true }),
+  closeAddMemberModal: () => set({ isAddMemberModalOpen: false }),
 
   setActiveProfile: (profileId: string) => {
     set({ activeProfileId: profileId });
@@ -76,7 +89,7 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     set((state) => {
       const updated = [...state.profiles, newProfile];
       persistProfiles(updated);
-      return { profiles: updated };
+      return { profiles: updated, activeProfileId: newProfile.id };
     });
 
     // Cloud push

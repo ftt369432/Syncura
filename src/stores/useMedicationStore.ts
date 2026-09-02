@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Medication, InventoryTransaction } from '@/types';
 import { differenceInDays, addDays } from 'date-fns';
 import { useClinicalMemoryStore } from '@/services/clinicalMemoryStore';
+import { initialSeedData } from '@/data/seedData';
 
 interface MedicationState {
   medications: Medication[];
@@ -16,6 +17,8 @@ interface MedicationState {
     isLowStock: boolean;
   };
   getMedicationsForProfile: (profileId: string) => Medication[];
+  resetToEmpty: () => void;
+  loadDemoMedications: () => void;
 }
 
 export const useMedicationStore = create<MedicationState>((set, get) => ({
@@ -186,5 +189,13 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
 
   getMedicationsForProfile: (profileId) => {
     return get().medications.filter((m) => m.profile_id === profileId && m.is_active);
+  },
+
+  resetToEmpty: () => {
+    set({ medications: [], transactions: [] });
+  },
+
+  loadDemoMedications: () => {
+    set({ medications: initialSeedData.medications, transactions: [] });
   },
 }));

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { useHouseholdStore } from './useHouseholdStore';
+import { useMedicationStore } from './useMedicationStore';
+import { useRegimenStore } from './useRegimenStore';
+import { useAlertsStore } from './useAlertsStore';
 
 export type UserAccountRole = 'family_admin' | 'family_caregiver' | 'senior_patient' | 'enterprise_nurse';
 
@@ -19,6 +23,9 @@ interface AuthState {
   currentUser: UserSession | null;
   isLoading: boolean;
   error: string | null;
+  isOnboardingOpen: boolean;
+  openOnboarding: () => void;
+  closeOnboarding: () => void;
   loginWithEmail: (email: string, password?: string) => Promise<boolean>;
   signupWithCredentials: (data: {
     email: string;
@@ -33,8 +40,7 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  isAuthenticated: true, // Defaults to authenticated demo session
-
+  isAuthenticated: true, // Default to demo session for instant testing
   currentUser: {
     id: 'user-david-101',
     email: 'david.miller@pinnacle.com',
@@ -44,11 +50,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     linkedHouseholdIds: ['hh-101'],
     createdAt: new Date().toISOString(),
   },
-
   isLoading: false,
   error: null,
+  isOnboardingOpen: false,
 
-  loginWithEmail: async (email, password) => {
+  openOnboarding: () => set({ isOnboardingOpen: true }),
+  closeOnboarding: () => set({ isOnboardingOpen: false }),
+
+  loginWithEmail: async (email: string, password?: string) => {
     set({ isLoading: true, error: null });
     const supabase = getSupabaseClient();
 
@@ -58,15 +67,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email,
           password,
         });
-
         if (error) throw error;
-
         if (data.user) {
           const session: UserSession = {
             id: data.user.id,
             email: data.user.email || email,
             fullName: data.user.user_metadata?.full_name || email.split('@')[0],
-            role: data.user.user_metadata?.role || 'family_caregiver',
+            role: data.user.user_metadata?.role || 'family_admin',
             licenseNumber: data.user.user_metadata?.license_number,
             linkedHouseholdIds: ['hh-101'],
             createdAt: data.user.created_at,
@@ -75,29 +82,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return true;
         }
       } catch (err: any) {
-        console.warn('Supabase Auth error, using local fallback:', err.message);
+        console.warn('Supabase auth sign in error, fallback to local:', err.message);
       }
     }
 
-    // High-speed fallback authentication
-    setTimeout(() => {
-      const session: UserSession = {
-        id: `user-${Date.now()}`,
+    // Local fallback matching demo personas or generic user
+    let session: UserSession;
+    if (email.toLowerCase().includes('david')) {
+      session = {
+        id: 'user-david-101',
         email,
-        fullName: email.split('@')[0],
-        role: 'family_caregiver',
+        fullName: 'David Miller (Caregiver Son)',
+        role: 'family_admin',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         linkedHouseholdIds: ['hh-101'],
         createdAt: new Date().toISOString(),
       };
-      set({ isAuthenticated: true, currentUser: session, isLoading: false });
-    }, 600);
+      useHouseholdStore.getState().loadDemoHousehold();
+      useMedicationStore.getState().loadDemoMedications();
+      useRegimenStore.getState().loadDemoRegimen();
+      useAlertsStore.getState().loadDemoAlerts();
+    } else {
+      session = {
+        id: `user-${Date.now()}`,
+        email,
+        fullName: email.split('@')[0],
+        role: 'family_admin',
+        linkedHouseholdIds: ['hh-101'],
+        createdAt: new Date().toISOString(),
+      };
+    }
 
+    set({ isAuthenticated: true, currentUser: session, isLoading: false });
     return true;
   },
 
   signupWithCredentials: async (data) => {
     set({ isLoading: true, error: null });
     const supabase = getSupabaseClient();
+
+    // 1. Initialize fresh, clean stores for this new user
+    useHouseholdStore.getState().initializeCleanHousehold(
+      data.fullName,
+      data.role === 'senior_patient' ? 'primary_admin' : 'primary_admin'
+    );
+    useMedicationStore.getState().resetToEmpty();
+    useRegimenStore.getState().resetToEmpty();
+    useAlertsStore.getState().resetToEmpty();
+
+    const newHouseholdId = useHouseholdStore.getState().household?.id || 'hh-101';
 
     if (supabase && data.password) {
       try {
@@ -122,10 +155,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             fullName: data.fullName,
             role: data.role,
             licenseNumber: data.licenseNumber,
-            linkedHouseholdIds: ['hh-101'],
+            linkedHouseholdIds: [newHouseholdId],
             createdAt: new Date().toISOString(),
           };
-          set({ isAuthenticated: true, currentUser: session, isLoading: false });
+          set({ isAuthenticated: true, currentUser: session, isLoading: false, isOnboardingOpen: true });
           return true;
         }
       } catch (err: any) {
@@ -140,10 +173,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       fullName: data.fullName,
       role: data.role,
       licenseNumber: data.licenseNumber,
-      linkedHouseholdIds: ['hh-101'],
+      linkedHouseholdIds: [newHouseholdId],
       createdAt: new Date().toISOString(),
     };
-    set({ isAuthenticated: true, currentUser: session, isLoading: false });
+    set({ isAuthenticated: true, currentUser: session, isLoading: false, isOnboardingOpen: true });
     return true;
   },
 
@@ -160,7 +193,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           linkedHouseholdIds: ['hh-101'],
           createdAt: new Date().toISOString(),
         },
+        isOnboardingOpen: false,
       });
+      useHouseholdStore.getState().loadDemoHousehold();
+      useMedicationStore.getState().loadDemoMedications();
+      useRegimenStore.getState().loadDemoRegimen();
+      useAlertsStore.getState().loadDemoAlerts();
     } else if (persona === 'eleanor_senior') {
       set({
         isAuthenticated: true,
@@ -173,7 +211,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           linkedHouseholdIds: ['hh-101'],
           createdAt: new Date().toISOString(),
         },
+        isOnboardingOpen: false,
       });
+      useHouseholdStore.getState().loadDemoHousehold();
+      useMedicationStore.getState().loadDemoMedications();
+      useRegimenStore.getState().loadDemoRegimen();
+      useAlertsStore.getState().loadDemoAlerts();
     } else if (persona === 'marcus_nurse') {
       set({
         isAuthenticated: true,
@@ -187,7 +230,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           linkedHouseholdIds: ['hh-101'],
           createdAt: new Date().toISOString(),
         },
+        isOnboardingOpen: false,
       });
+      useHouseholdStore.getState().loadDemoHousehold();
+      useMedicationStore.getState().loadDemoMedications();
+      useRegimenStore.getState().loadDemoRegimen();
+      useAlertsStore.getState().loadDemoAlerts();
     }
   },
 
@@ -196,7 +244,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (supabase) {
       supabase.auth.signOut().catch(() => {});
     }
-    set({ isAuthenticated: false, currentUser: null });
+    set({ isAuthenticated: false, currentUser: null, isOnboardingOpen: false });
   },
 
   linkHouseholdToUser: (householdId) => {

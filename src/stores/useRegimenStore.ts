@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { RegimenRule, DoseLog, DoseStatus } from '@/types';
 import { differenceInMinutes, differenceInHours, addMinutes, format } from 'date-fns';
+import { initialSeedData } from '@/data/seedData';
 
 interface RegimenState {
   rules: RegimenRule[];
@@ -30,6 +31,8 @@ interface RegimenState {
     status: DoseStatus;
     logId?: string;
   }>;
+  resetToEmpty: () => void;
+  loadDemoRegimen: () => void;
 }
 
 export const useRegimenStore = create<RegimenState>((set, get) => ({
@@ -192,5 +195,13 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
         logId: existingLog?.id,
       };
     }).sort((a, b) => a.targetTime.localeCompare(b.targetTime));
+  },
+
+  resetToEmpty: () => {
+    set({ rules: [], doseLogs: [] });
+  },
+
+  loadDemoRegimen: () => {
+    set({ rules: initialSeedData.regimenRules, doseLogs: initialSeedData.doseLogs });
   },
 }));

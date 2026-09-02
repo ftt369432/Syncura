@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Profile, Household, FamilyMessage, VoiceIntakeNote } from '@/types';
+import { Profile, Household, FamilyMessage, VoiceIntakeNote, ProfileRole } from '@/types';
 import { initialSeedData } from '@/data/seedData';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
@@ -22,6 +22,8 @@ interface HouseholdState {
   isAddMemberModalOpen: boolean;
   openAddMemberModal: () => void;
   closeAddMemberModal: () => void;
+  initializeCleanHousehold: (ownerName: string, role?: ProfileRole, householdName?: string) => void;
+  loadDemoHousehold: () => void;
 }
 
 const loadInitialProfiles = (): Profile[] => {
@@ -193,5 +195,43 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
 
   setHousehold: (household: Household) => {
     set({ household });
+  },
+
+  initializeCleanHousehold: (ownerName: string, role: ProfileRole = 'primary_admin', householdName?: string) => {
+    const newHousehold: Household = {
+      id: `hh-${Date.now()}`,
+      name: householdName || `${ownerName.split(' ')[0]}'s Health Vault`,
+      invite_code: Math.floor(100000 + Math.random() * 900000).toString(),
+      created_at: new Date().toISOString(),
+    };
+
+    const initialProfile: Profile = {
+      id: `prof-${Date.now()}`,
+      household_id: newHousehold.id,
+      name: ownerName,
+      role,
+      avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+      allergies: [],
+      chronic_conditions: [],
+      created_at: new Date().toISOString(),
+    };
+
+    persistProfiles([initialProfile]);
+    set({
+      household: newHousehold,
+      profiles: [initialProfile],
+      activeProfileId: initialProfile.id,
+      messages: [],
+    });
+  },
+
+  loadDemoHousehold: () => {
+    persistProfiles(initialSeedData.profiles);
+    set({
+      household: initialSeedData.households[0],
+      profiles: initialSeedData.profiles,
+      activeProfileId: 'prof-mom',
+      messages: initialSeedData.familyMessages,
+    });
   },
 }));

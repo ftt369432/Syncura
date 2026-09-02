@@ -13,6 +13,8 @@ import { AuthModal } from '@/features/auth/AuthModal';
 import { LoggedOutAuthGateView } from '@/features/auth/LoggedOutAuthGateView';
 import { CaregiverQrPairingModal } from '@/features/household/CaregiverQrPairingModal';
 import { AddFamilyMemberModal } from '@/features/household/AddFamilyMemberModal';
+import { WelcomeOnboardingModal } from '@/features/onboarding/WelcomeOnboardingModal';
+import { BottleScannerModal } from '@/features/vision/BottleScannerModal';
 import { PaywallModal } from '@/features/billing/PaywallModal';
 import { ClinicalAlertsInboxModal } from '@/features/alerts/ClinicalAlertsInboxModal';
 import { AiHealthCompanionModal } from '@/features/ai/AiHealthCompanionModal';
@@ -31,6 +33,7 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isOnboardingBottleScannerOpen, setIsOnboardingBottleScannerOpen] = useState(false);
   const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
   const [isProfileQuickMenuOpen, setIsProfileQuickMenuOpen] = useState(false);
 
@@ -40,7 +43,7 @@ export default function App() {
   const { theme, toggleTheme } = useThemeStore();
   const { isEnterpriseMode, toggleEnterpriseMode } = useEnterpriseStore();
   const { connectionStatus } = useCloudConfigStore();
-  const { currentUser, loginAsDemoPersona, logout } = useAuthStore();
+  const { currentUser, loginAsDemoPersona, logout, isOnboardingOpen, closeOnboarding } = useAuthStore();
   const { openPaywall } = useBillingStore();
   const { openInbox, getUnreadCount } = useAlertsStore();
   const { isPairingModalOpen: isHouseholdPairingOpen, closePairingModal } = useHouseholdStore();
@@ -488,6 +491,15 @@ export default function App() {
         }}
       />
       <AddFamilyMemberModal />
+      <WelcomeOnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={closeOnboarding}
+        onOpenBottleScanner={() => setIsOnboardingBottleScannerOpen(true)}
+      />
+      <BottleScannerModal
+        isOpen={isOnboardingBottleScannerOpen}
+        onClose={() => setIsOnboardingBottleScannerOpen(false)}
+      />
       <AiHealthCompanionModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}

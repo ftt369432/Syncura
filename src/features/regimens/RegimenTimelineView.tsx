@@ -223,7 +223,31 @@ export const RegimenTimelineView: React.FC = () => {
         <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Today's Schedule</h3>
         
         <div className="space-y-2.5">
-          {timeline.map((item) => {
+          {timeline.length === 0 ? (
+            <div className="p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm animate-fadeIn">
+              <div className="w-14 h-14 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto shadow-inner">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-black text-slate-900 dark:text-white">
+                  Welcome! Your Medication Cabinet is Clean & Ready
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                  No active prescriptions or doses scheduled yet for {activeProfile?.name || 'this profile'}. Scan your first pharmacy bottle with your camera to begin.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+                <button
+                  onClick={() => setScannerOpen(true)}
+                  className="py-3 px-5 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>📷 Scan Prescription Bottle</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            timeline.map((item) => {
             const med = medications.find((m) => m.id === item.medicationId);
             if (!med) return null;
 
@@ -276,7 +300,8 @@ export const RegimenTimelineView: React.FC = () => {
                 )}
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 

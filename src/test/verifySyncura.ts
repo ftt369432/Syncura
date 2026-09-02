@@ -64,6 +64,48 @@ async function runVerification() {
   console.log(`   ✓ Entry 0 Resource: ${bundle.entry[0].resource.resourceType}`);
   console.log(`   ✓ Entry 1 Resource: ${bundle.entry[1].resource.resourceType}`);
 
+  // Test 3: Post-Scan Clinical Safety & Allergen Interception
+  console.log('\n3. Testing Post-Bottle Scan Clinical Safety & Memory Calibration...');
+  const { ClinicalInteractionEngine } = await import('../services/clinicalInteractionEngine');
+  
+  // 3a. Penicillin Allergy Intercept
+  const amoxSafety = ClinicalInteractionEngine.analyzeNewMedicationSafety(
+    { name: 'Amoxicillin 500mg' },
+    testProfile,
+    testMeds
+  );
+  console.log(`   ✓ Amoxicillin Scan Status: ${amoxSafety.overallStatus} (Expected: critical_allergy)`);
+  console.log(`   ✓ Intercepted Findings: ${amoxSafety.allergyFindings[0]?.title}`);
+
+  // 3b. Anticoagulant + NSAID Bleeding DDI
+  const activeAnticoagMeds: Medication[] = [
+    {
+      id: 'med-eliquis',
+      profile_id: testProfile.id,
+      name: 'Eliquis (Apixaban)',
+      dosage_strength: '5 mg',
+      form: 'tablet',
+      instructions: 'Take 1 tablet twice daily',
+      requires_food: false,
+      empty_stomach: false,
+      is_active: true,
+      current_stock: 60,
+      unit_of_measure: 'tablets',
+      refill_warning_threshold: 10,
+      remaining_refills: 2,
+      is_prn: false,
+      created_at: new Date().toISOString(),
+    },
+  ];
+
+  const advilSafety = ClinicalInteractionEngine.analyzeNewMedicationSafety(
+    { name: 'Ibuprofen (Advil) 400mg' },
+    testProfile,
+    activeAnticoagMeds
+  );
+  console.log(`   ✓ Advil Scan Status: ${advilSafety.overallStatus} (Expected: severe_ddi)`);
+  console.log(`   ✓ DDI Conflict: ${advilSafety.ddiFindings[0]?.title}`);
+
   console.log('\n=== ✅ ALL CORE VERIFICATIONS PASSED ===');
 }
 

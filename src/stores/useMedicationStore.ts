@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Medication, InventoryTransaction } from '@/types';
 import { differenceInDays, addDays } from 'date-fns';
+import { useClinicalMemoryStore } from '@/services/clinicalMemoryStore';
 
 interface MedicationState {
   medications: Medication[];
@@ -8,6 +9,7 @@ interface MedicationState {
   addMedication: (medication: Omit<Medication, 'id' | 'created_at'>) => void;
   updateStock: (medicationId: string, newStock: number, reason: string, txType?: InventoryTransaction['tx_type']) => void;
   decrementStockForDose: (medicationId: string) => void;
+  discontinueMedication: (medicationId: string, reason?: string) => void;
   calculateBurnRateHorizon: (medicationId: string, dailyDoseCount?: number) => {
     daysRemaining: number;
     estimatedRunoutDate: string;
@@ -141,6 +143,28 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
     if (!med) return;
     const newStock = Math.max(0, med.current_stock - 1);
     get().updateStock(medicationId, newStock, 'dose_administered', 'dose_taken');
+  },
+
+  discontinueMedication: (medicationId, reason) => {
+    const med = get().medications.find((m) => m.id === medicationId);
+    if (!med) return;
+
+    set((state) => ({
+      medications: state.medications.map((m) =>
+        m.id === medicationId ? { ...m, is_active: false } : m
+      ),
+    }));
+
+    // Recalibrate persistent clinical memory
+    try {
+      useClinicalMemoryStore.getState().recordDiscontinuation(
+        med.profile_id,
+        med.name,
+        reason || 'Discontinued by patient/caregiver order'
+      );
+    } catch (e) {
+      console.warn('Memory calibration log skipped:', e);
+    }
   },
 
   calculateBurnRateHorizon: (medicationId, dailyDoseCount = 1) => {

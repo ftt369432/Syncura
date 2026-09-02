@@ -57,11 +57,23 @@ export interface Profile {
   care_team?: CareTeamDoctor[];
   preferred_pharmacy?: PreferredPharmacy;
   allergies?: string[];
+  chronic_conditions?: string[];
+  voice_intake_notes?: VoiceIntakeNote[];
   blood_type?: string;
   emergency_notes?: string;
   ice_contact_name?: string;
   ice_contact_phone?: string;
   created_at: string;
+}
+
+export interface VoiceIntakeNote {
+  id: string;
+  audio_url?: string;
+  transcript: string;
+  detected_allergies: string[];
+  detected_conditions: string[];
+  recorded_at: string;
+  duration_seconds?: number;
 }
 
 export interface Household {

@@ -47,6 +47,8 @@ interface ClinicalMemoryState {
   getMemoryForProfile: (profileId: string) => PersistentClinicalProfile;
   addTimelineEvent: (profileId: string, event: Omit<MedicalTimelineEvent, 'id'>) => void;
   addLabTrajectoryData: (profileId: string, testName: string, date: string, value: number, flag: 'normal' | 'improved' | 'elevated') => void;
+  recordDiscontinuation: (profileId: string, medName: string, reason: string) => void;
+  addPermanentContraindication: (profileId: string, drugOrClass: string, adverseReaction: string, rule: string) => void;
 }
 
 export const useClinicalMemoryStore = create<ClinicalMemoryState>((set, get) => ({
@@ -203,6 +205,71 @@ export const useClinicalMemoryStore = create<ClinicalMemoryState>((set, get) => 
           [profileId]: {
             ...existing,
             lab_trajectories: updatedTrajectories,
+            last_synthesized_at: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  },
+
+  recordDiscontinuation: (profileId, medName, reason) => {
+    const today = new Date().toISOString().split('T')[0];
+    const year = new Date().getFullYear();
+    set((state) => {
+      const existing = state.memory[profileId] || state.memory['prof-mom'];
+      const newTimelineEvent: MedicalTimelineEvent = {
+        id: `time-disc-${Date.now()}`,
+        date: today,
+        category: 'drug_intolerance',
+        title: `${medName} Discontinued & Logged in Memory`,
+        clinical_summary: `Patient discontinued ${medName}. Reason: ${reason || 'Doctor adjusted regimen / intolerance'}.`,
+        impact_on_future_care: `Auto-adjusted clinical matrix: Any past interaction warnings cleared. Re-prescription guard active.`,
+        source_institution: 'Syncura Sovereign Clinical Memory',
+      };
+
+      const newContraindication = {
+        drug_or_class: medName,
+        adverse_reaction: reason || 'Discontinued due to clinical intolerance or provider order',
+        year_identified: year,
+        rule: `CAUTION: Previously discontinued (${reason || 'clinical order'}). Verify with prescribing doctor before restarting.`,
+      };
+
+      return {
+        memory: {
+          ...state.memory,
+          [profileId]: {
+            ...existing,
+            permanent_drug_contraindications: [
+              newContraindication,
+              ...existing.permanent_drug_contraindications.filter(
+                (c) => c.drug_or_class.toLowerCase() !== medName.toLowerCase()
+              ),
+            ],
+            longitudinal_timeline: [newTimelineEvent, ...existing.longitudinal_timeline],
+            last_synthesized_at: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  },
+
+  addPermanentContraindication: (profileId, drugOrClass, adverseReaction, rule) => {
+    set((state) => {
+      const existing = state.memory[profileId] || state.memory['prof-mom'];
+      return {
+        memory: {
+          ...state.memory,
+          [profileId]: {
+            ...existing,
+            permanent_drug_contraindications: [
+              {
+                drug_or_class: drugOrClass,
+                adverse_reaction: adverseReaction,
+                year_identified: new Date().getFullYear(),
+                rule,
+              },
+              ...existing.permanent_drug_contraindications,
+            ],
             last_synthesized_at: new Date().toISOString(),
           },
         },

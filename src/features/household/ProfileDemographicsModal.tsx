@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { User, X, MapPin, Shield, Phone, Mail, Stethoscope, Building, Pill, CreditCard, Edit3, Check, Copy, Sparkles, Download } from 'lucide-react';
+import { User, X, MapPin, Shield, Phone, Mail, Stethoscope, Building, Pill, CreditCard, Edit3, Check, Copy, Sparkles, Download, ShieldAlert, Activity, Mic, Play, Pause } from 'lucide-react';
 import { Profile } from '@/types';
 import { useHouseholdStore } from '@/stores/useHouseholdStore';
+import { QuickAllergyConditionIntakeModal } from './QuickAllergyConditionIntakeModal';
 
 interface ProfileDemographicsModalProps {
   isOpen: boolean;
@@ -17,8 +18,25 @@ export const ProfileDemographicsModal: React.FC<ProfileDemographicsModalProps> =
   const { updateProfile } = useHouseholdStore();
   const [isEditing, setIsEditing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
   if (!isOpen || !profile) return null;
+
+  const handlePlayVoice = (id: string, text: string) => {
+    if (playingVoiceId === id) {
+      window.speechSynthesis.cancel();
+      setPlayingVoiceId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.onend = () => setPlayingVoiceId(null);
+    utterance.onerror = () => setPlayingVoiceId(null);
+    setPlayingVoiceId(id);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleCopy = (label: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -64,6 +82,100 @@ export const ProfileDemographicsModal: React.FC<ProfileDemographicsModalProps> =
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 DOB: <strong className="text-slate-800 dark:text-slate-200">{profile.dob || '1952-04-12'}</strong> • Sex: <strong className="text-slate-800 dark:text-slate-200 uppercase">{profile.gender || 'female'}</strong> • Blood: <strong className="text-rose-600 dark:text-rose-400">{profile.blood_type || 'O+'}</strong>
               </p>
+            </div>
+          </div>
+
+          {/* Section 0: Clinical Allergies, Health Issues & Voice Intake */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+                Allergies & Chronic Health Shield
+              </h4>
+              <button
+                onClick={() => setIsIntakeModalOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-[11px] flex items-center gap-1 transition shadow-sm"
+              >
+                <Mic className="w-3 h-3" />
+                1-Tap & Voice Edit
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs space-y-3 shadow-sm">
+              {/* Allergies */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 block">
+                  Documented Allergies ({profile.allergies?.length || 0})
+                </span>
+                {profile.allergies && profile.allergies.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.allergies.map((all, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300 font-bold text-[11px]"
+                      >
+                        ⚠️ {all}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 italic text-[11px]">
+                    No known drug allergies (NKDA) documented. Tap above to add with 1 tap.
+                  </p>
+                )}
+              </div>
+
+              {/* Chronic Conditions */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-sky-600 dark:text-sky-400 block">
+                  Chronic Conditions ({profile.chronic_conditions?.length || 0})
+                </span>
+                {profile.chronic_conditions && profile.chronic_conditions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.chronic_conditions.map((cond, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-500/40 text-sky-800 dark:text-sky-300 font-bold text-[11px]"
+                      >
+                        🩺 {cond}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 italic text-[11px]">
+                    No chronic baselines documented. Tap above to select.
+                  </p>
+                )}
+              </div>
+
+              {/* Saved Voice Memos */}
+              {profile.voice_intake_notes && profile.voice_intake_notes.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1">
+                    <Mic className="w-3 h-3" />
+                    Spoken Health Intake Memos ({profile.voice_intake_notes.length})
+                  </span>
+                  <div className="space-y-1.5">
+                    {profile.voice_intake_notes.slice(0, 2).map((v) => (
+                      <div
+                        key={v.id}
+                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px]"
+                      >
+                        <p className="truncate flex-1 font-medium text-slate-700 dark:text-slate-300 pr-2 italic">
+                          "{v.transcript}"
+                        </p>
+                        <button
+                          onClick={() => handlePlayVoice(v.id, v.transcript)}
+                          className="px-2 py-0.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500/20 font-bold text-[10px] shrink-0 flex items-center gap-1"
+                        >
+                          {playingVoiceId === v.id ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                          {playingVoiceId === v.id ? 'Stop' : 'Listen'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -199,6 +311,11 @@ export const ProfileDemographicsModal: React.FC<ProfileDemographicsModalProps> =
           )}
         </div>
       </div>
+
+      <QuickAllergyConditionIntakeModal
+        isOpen={isIntakeModalOpen}
+        onClose={() => setIsIntakeModalOpen(false)}
+      />
     </div>
   );
 };

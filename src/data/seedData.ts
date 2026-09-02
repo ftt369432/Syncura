@@ -91,6 +91,17 @@ export const initialSeedData: SyncuraSeedDataset = {
         rx_cross_street: 'Magnolia & Arlington',
       },
       allergies: ['Penicillin (Anaphylaxis)', 'Sulfa Drugs'],
+      chronic_conditions: ['Type 2 Diabetes Mellitus', 'Atrial Fibrillation / Heart Disease', 'Hypothyroidism', 'Osteoarthritis / Joint Pain'],
+      voice_intake_notes: [
+        {
+          id: 'voice-eleanor-1',
+          transcript: "I'm allergic to penicillin and sulfa drugs. I have high blood pressure, type 2 diabetes, and irregular heartbeat.",
+          detected_allergies: ['Penicillin (Beta-Lactam)', 'Sulfa Drugs (Bactrim)'],
+          detected_conditions: ['High Blood Pressure (Hypertension)', 'Type 2 Diabetes Mellitus', 'Atrial Fibrillation / Heart Disease'],
+          recorded_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+          duration_seconds: 7,
+        },
+      ],
       blood_type: 'O+',
       emergency_notes: 'Type 2 Diabetes, Atrial Fibrillation on daily Apixaban. St. Jude Pacemaker implanted 2022.',
       ice_contact_name: 'David Miller (Son)',

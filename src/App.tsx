@@ -183,34 +183,44 @@ export default function App() {
 
             {/* 3. Unified Profile & System Control Menu */}
             <div className="relative" ref={profileMenuRef}>
-              <button
-                onClick={() => setIsProfileQuickMenuOpen(!isProfileQuickMenuOpen)}
-                className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 transition flex items-center gap-1 shadow-sm"
-                title="Account & Quick Settings"
-              >
-                <img
-                  src={currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-                  alt="User"
-                  className="w-6 h-6 rounded-xl object-cover"
-                />
-                <ChevronDown className="w-3 h-3 text-slate-400 mr-1" />
-              </button>
+              {currentUser ? (
+                <button
+                  onClick={() => setIsProfileQuickMenuOpen(!isProfileQuickMenuOpen)}
+                  className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 transition flex items-center gap-1 shadow-sm"
+                  title="Account & Quick Settings"
+                >
+                  <img
+                    src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
+                    alt="User"
+                    className="w-6 h-6 rounded-xl object-cover"
+                  />
+                  <ChevronDown className="w-3 h-3 text-slate-400 mr-1" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="py-1.5 px-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+              )}
 
               {/* Profile & Settings Dropdown */}
-              {isProfileQuickMenuOpen && (
+              {isProfileQuickMenuOpen && currentUser && (
                 <div className="absolute right-0 mt-2 w-72 p-3 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 text-xs space-y-3 animate-fadeIn">
                   {/* User Badge */}
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <img
-                        src={currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-                        alt={currentUser?.fullName}
+                        src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
+                        alt={currentUser.fullName}
                         className="w-9 h-9 rounded-xl object-cover ring-2 ring-brand-500/20"
                       />
                       <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-xs">{currentUser?.fullName}</h4>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-xs">{currentUser.fullName}</h4>
                         <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-1.5 py-0.2 rounded">
-                          {currentUser?.role.toUpperCase()}
+                          {currentUser.role.toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -300,6 +310,19 @@ export default function App() {
                     >
                       <span className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-purple-500" /> Account & Credentials
+                      </span>
+                    </button>
+
+                    {/* Explicit Log Out Action */}
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsProfileQuickMenuOpen(false);
+                      }}
+                      className="w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition mt-1"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LogOut className="w-4 h-4" /> Log Out
                       </span>
                     </button>
                   </div>

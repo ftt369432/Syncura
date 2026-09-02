@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS nurse_visit_sessions (
 );
 
 -- ==============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- PRODUCTION MULTI-TENANT ROW LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
 ALTER TABLE households ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -166,16 +166,69 @@ ALTER TABLE family_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_visit_sessions ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated and anon access for initial prototype and mobile app
-CREATE POLICY "Public Read Access" ON households FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON profiles FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON medications FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON regimen_rules FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON dose_logs FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON biometric_readings FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON family_messages FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON inventory_transactions FOR ALL USING (true);
-CREATE POLICY "Public Read Access" ON nurse_visit_sessions FOR ALL USING (true);
+-- Helper function: Resolve active user household
+CREATE OR REPLACE FUNCTION current_user_household_id()
+RETURNS UUID AS $$
+  SELECT household_id FROM profiles WHERE id = auth.uid() LIMIT 1;
+$$ LANGUAGE sql SECURITY DEFINER;
 
--- Enable Realtime for live cross-device synchronizations
+-- 1. Households: Isolated to member users
+CREATE POLICY "Household members can view household"
+  ON households FOR SELECT
+  USING (id = current_user_household_id());
+
+CREATE POLICY "Household admins can update household"
+  ON households FOR UPDATE
+  USING (id = current_user_household_id());
+
+CREATE POLICY "Users can create household"
+  ON households FOR INSERT
+  WITH CHECK (true);
+
+-- 2. Profiles: Strict isolation within the same household
+CREATE POLICY "Household members view co-profiles"
+  ON profiles FOR SELECT
+  USING (household_id = current_user_household_id() OR id = auth.uid());
+
+CREATE POLICY "Household members manage profiles"
+  ON profiles FOR ALL
+  USING (household_id = current_user_household_id() OR id = auth.uid());
+
+-- 3. Medications: Strict isolation within the household
+CREATE POLICY "Household members view medications"
+  ON medications FOR SELECT
+  USING (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+CREATE POLICY "Household members manage medications"
+  ON medications FOR ALL
+  USING (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+-- 4. Dose Logs: Isolated to household patients
+CREATE POLICY "Household view dose logs"
+  ON dose_logs FOR SELECT
+  USING (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+CREATE POLICY "Household insert dose logs"
+  ON dose_logs FOR INSERT
+  WITH CHECK (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+-- 5. Family Messages: Private household stream
+CREATE POLICY "Household view messages"
+  ON family_messages FOR SELECT
+  USING (household_id = current_user_household_id());
+
+CREATE POLICY "Household post messages"
+  ON family_messages FOR INSERT
+  WITH CHECK (household_id = current_user_household_id());
+
+-- 6. Biometrics & Telemetry: Private patient readings
+CREATE POLICY "Household view biometrics"
+  ON biometric_readings FOR SELECT
+  USING (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+CREATE POLICY "Household insert biometrics"
+  ON biometric_readings FOR INSERT
+  WITH CHECK (profile_id IN (SELECT id FROM profiles WHERE household_id = current_user_household_id()));
+
+-- Enable Realtime for live cross-device synchronization
 ALTER PUBLICATION supabase_realtime ADD TABLE households, profiles, medications, dose_logs, biometric_readings, family_messages;

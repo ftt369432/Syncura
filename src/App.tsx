@@ -10,6 +10,7 @@ import { AgencyRosterView } from '@/features/enterprise/AgencyRosterView';
 import { LandingPageView } from '@/features/landing/LandingPageView';
 import { CloudConnectionModal } from '@/features/cloud/CloudConnectionModal';
 import { AuthModal } from '@/features/auth/AuthModal';
+import { LoggedOutAuthGateView } from '@/features/auth/LoggedOutAuthGateView';
 import { CaregiverQrPairingModal } from '@/features/household/CaregiverQrPairingModal';
 import { PaywallModal } from '@/features/billing/PaywallModal';
 import { ClinicalAlertsInboxModal } from '@/features/alerts/ClinicalAlertsInboxModal';
@@ -155,8 +156,21 @@ export default function App() {
             )}
           </div>
 
-          {/* Right Side: 3 Unified Action Icons (AI, Alerts, Profile Sheet) */}
+          {/* Right Side: Header Action Icons */}
           <div className="flex items-center gap-2">
+            {/* Theme Toggle directly on Header */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition shadow-sm"
+              title={`Switch to ${theme === 'dark' ? 'Light Mode' : 'Dark Mode'}`}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700" />
+              )}
+            </button>
+
             {/* 1. Ask AI Advocate Trigger */}
             <button
               onClick={() => setIsAiModalOpen(true)}
@@ -354,6 +368,13 @@ export default function App() {
               setActiveTab('agency');
             }}
           />
+        ) : !currentUser ? (
+          <LoggedOutAuthGateView
+            onSignIn={() => setIsAuthModalOpen(true)}
+            onSignUp={() => setIsAuthModalOpen(true)}
+            onOpenPaywall={() => openPaywall()}
+            onDemoPreview={() => loginAsDemoPersona('david_caregiver')}
+          />
         ) : (
           <div className="max-w-lg mx-auto">
             {activeTab === 'today' && <RegimenTimelineView />}
@@ -367,8 +388,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Sticky Tab Navigation Bar (Active in App Mode) */}
-      {currentView === 'app' && (
+      {/* Bottom Sticky Tab Navigation Bar (Active in App Mode when Authenticated) */}
+      {currentView === 'app' && currentUser && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-3 py-2">
           <div className="max-w-lg mx-auto flex items-center justify-around">
             {isEnterpriseMode ? (

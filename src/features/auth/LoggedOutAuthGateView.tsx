@@ -1,11 +1,12 @@
 import React from 'react';
-import { Lock, Shield, Sparkles, ArrowRight, UserPlus, LogIn, Heart, Check, Zap, Crown } from 'lucide-react';
+import { Lock, Shield, Sparkles, ArrowRight, UserPlus, LogIn, Heart, Check, Zap, Crown, QrCode, User } from 'lucide-react';
 
 interface LoggedOutAuthGateViewProps {
   onSignIn: () => void;
   onSignUp: () => void;
   onOpenPaywall: () => void;
   onDemoPreview: () => void;
+  onPairQrCode: () => void;
 }
 
 export const LoggedOutAuthGateView: React.FC<LoggedOutAuthGateViewProps> = ({
@@ -13,6 +14,7 @@ export const LoggedOutAuthGateView: React.FC<LoggedOutAuthGateViewProps> = ({
   onSignUp,
   onOpenPaywall,
   onDemoPreview,
+  onPairQrCode,
 }) => {
   return (
     <div className="max-w-md mx-auto my-6 p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-6 animate-fadeIn">
@@ -44,16 +46,26 @@ export const LoggedOutAuthGateView: React.FC<LoggedOutAuthGateViewProps> = ({
           className="w-full py-3.5 px-4 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25"
         >
           <LogIn className="w-4 h-4" />
-          <span>Sign In to Your Family Vault</span>
+          <span>Sign In to Your Vault</span>
         </button>
 
-        <button
-          onClick={onSignUp}
-          className="w-full py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700"
-        >
-          <UserPlus className="w-4 h-4 text-brand-500" />
-          <span>Create New Family Account</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={onSignUp}
+            className="py-2.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-brand-500" />
+            <span>Create Account</span>
+          </button>
+
+          <button
+            onClick={onPairQrCode}
+            className="py-2.5 px-3 rounded-2xl bg-brand-500/10 hover:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-brand-500/30 shadow-sm"
+          >
+            <QrCode className="w-3.5 h-3.5 text-brand-500" />
+            <span>Pair via QR Code</span>
+          </button>
+        </div>
 
         <button
           onClick={onOpenPaywall}

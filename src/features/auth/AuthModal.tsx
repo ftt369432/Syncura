@@ -265,12 +265,65 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           {/* Tab 3: New Account Sign Up & Credentialing */}
           {mode === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-3">
+              {/* Personal vs Family Vault Selector */}
               <div>
-                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Full Legal Name</label>
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase block mb-1.5">
+                  Choose Account Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRole('senior_patient')}
+                    className={`p-3 rounded-2xl border text-left transition ${
+                      role === 'senior_patient'
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/30'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-black text-xs text-slate-900 dark:text-white">
+                      <User className="w-4 h-4 text-brand-500" /> Personal Account
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                      For myself: track daily meds, vitamins & vitals
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRole('family_admin')}
+                    className={`p-3 rounded-2xl border text-left transition ${
+                      role === 'family_admin'
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/30'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-black text-xs text-slate-900 dark:text-white">
+                      <Heart className="w-4 h-4 text-rose-500 fill-current" /> Family Vault
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                      Caring for parents, spouse, or siblings
+                    </p>
+                  </button>
+                </div>
+
+                <div className="mt-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>💡 Started as Personal? Pair with family anytime via QR code.</span>
+                  <button
+                    type="button"
+                    onClick={() => setRole('enterprise_nurse')}
+                    className={`font-bold hover:underline ${role === 'enterprise_nurse' ? 'text-emerald-600 font-black' : 'text-slate-400'}`}
+                  >
+                    {role === 'enterprise_nurse' ? '✓ Nurse Mode' : 'Nurse / Agency?'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Full Name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah Miller or Dr. Elena Rostova"
+                  placeholder={role === 'senior_patient' ? 'e.g. Eleanor Miller' : 'e.g. David Miller'}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
@@ -282,25 +335,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <input
                   type="email"
                   required
-                  placeholder="name@healthcare.org or family@gmail.com"
+                  placeholder="name@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
                 />
-              </div>
-
-              <div>
-                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Credentialed Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserAccountRole)}
-                  className="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 font-medium"
-                >
-                  <option value="family_admin">Primary Family Caregiver (Full Admin)</option>
-                  <option value="family_caregiver">Family Member / Secondary Caregiver</option>
-                  <option value="senior_patient">Senior / Independent Patient</option>
-                  <option value="enterprise_nurse">Registered Nurse / Clinical Staff (eMAR)</option>
-                </select>
               </div>
 
               {role === 'enterprise_nurse' && (

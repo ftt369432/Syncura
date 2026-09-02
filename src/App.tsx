@@ -375,6 +375,7 @@ export default function App() {
           <LoggedOutAuthGateView
             onSignIn={() => setIsAuthModalOpen(true)}
             onSignUp={() => setIsAuthModalOpen(true)}
+            onPairQrCode={() => setIsPairingModalOpen(true)}
             onOpenPaywall={() => openPaywall()}
             onDemoPreview={() => loginAsDemoPersona('david_caregiver')}
           />

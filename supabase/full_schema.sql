@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   dob DATE,
   role TEXT NOT NULL DEFAULT 'dependent',
   allergies JSONB DEFAULT '[]'::jsonb,
+  chronic_conditions JSONB DEFAULT '[]'::jsonb,
+  voice_intake_notes JSONB DEFAULT '[]'::jsonb,
   blood_type TEXT,
   ice_contact_name TEXT,
   ice_contact_phone TEXT,

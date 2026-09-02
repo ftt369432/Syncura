@@ -96,6 +96,8 @@ export const useCloudConfigStore = create<CloudConfigState>((set, get) => ({
           dob: p.dob,
           blood_type: p.blood_type,
           allergies: p.allergies,
+          chronic_conditions: p.chronic_conditions,
+          voice_intake_notes: p.voice_intake_notes,
           emergency_notes: p.emergency_notes,
           ice_contact_name: p.ice_contact_name,
           ice_contact_phone: p.ice_contact_phone,

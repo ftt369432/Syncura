@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, X, MapPin, Shield, Phone, Mail, Stethoscope, Building, Pill, CreditCard, Edit3, Check, Copy, Sparkles, Download, ShieldAlert, Activity, Mic, Play, Pause } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, X, MapPin, Shield, Phone, Mail, Stethoscope, Building, Pill, CreditCard, Edit3, Check, Copy, Sparkles, Download, ShieldAlert, Activity, Mic, Play, Pause, Camera, Upload } from 'lucide-react';
 import { Profile } from '@/types';
 import { useHouseholdStore } from '@/stores/useHouseholdStore';
 import { QuickAllergyConditionIntakeModal } from './QuickAllergyConditionIntakeModal';
@@ -20,8 +20,47 @@ export const ProfileDemographicsModal: React.FC<ProfileDemographicsModalProps> =
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen || !profile) return null;
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 280;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height *= MAX_DIM / width;
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width *= MAX_DIM / height;
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        updateProfile(profile.id, { avatar_url: dataUrl });
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handlePlayVoice = (id: string, text: string) => {
     if (playingVoiceId === id) {
@@ -67,11 +106,31 @@ export const ProfileDemographicsModal: React.FC<ProfileDemographicsModalProps> =
         <div className="p-6 overflow-y-auto space-y-5">
           {/* Patient Hero Badge */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-start gap-4 shadow-sm">
-            <img
-              src={profile.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
-              alt={profile.name}
-              className="w-14 h-14 rounded-2xl object-cover ring-2 ring-brand-500/30 shrink-0"
-            />
+            {/* Interactive Photo Upload / Camera Button */}
+            <div className="relative group shrink-0">
+              <img
+                src={profile.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
+                alt={profile.name}
+                className="w-16 h-16 rounded-2xl object-cover ring-2 ring-brand-500/40 shadow-sm"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 bg-black/50 hover:bg-black/70 rounded-2xl flex flex-col items-center justify-center text-white opacity-80 group-hover:opacity-100 transition backdrop-blur-[1px]"
+                title="Upload Photo or Take Picture"
+              >
+                <Camera className="w-5 h-5 text-white" />
+                <span className="text-[9px] font-bold mt-0.5">Photo</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h4 className="text-lg font-black text-slate-900 dark:text-white truncate">{profile.legal_first_name || profile.name} {profile.legal_last_name || ''}</h4>

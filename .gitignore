@@ -26,3 +26,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Video scratch & temp files
+*.mp4
+*.wav
+*.ass
+video_temp/
+concat_list.txt
+youtube_thumbnail_*.png

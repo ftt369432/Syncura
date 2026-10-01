@@ -21,14 +21,15 @@ export const RegimenTimelineView: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0];
-  const timeline = activeProfileId ? getTodayTimeline(activeProfileId) : [];
+  const profileMeds = activeProfile ? medications.filter((m) => m.profile_id === activeProfile.id && m.is_active) : [];
+  const timeline = activeProfile?.id ? getTodayTimeline(activeProfile.id) : [];
 
-  // Find next pending dose
+  // Find next pending dose strictly for this active profile's medications
   const nextPending = timeline.find((item) => item.status === 'pending');
-  const nextMed = nextPending ? medications.find((m) => m.id === nextPending.medicationId) : null;
+  const nextMed = nextPending ? profileMeds.find((m) => m.id === nextPending.medicationId) : null;
 
   // PRN Medications
-  const prnMeds = medications.filter((m) => m.profile_id === activeProfileId && m.is_prn);
+  const prnMeds = activeProfile ? medications.filter((m) => m.profile_id === activeProfile.id && m.is_prn && m.is_active) : [];
 
   const handleTakeDose = (medicationId: string, scheduledTime: string) => {
     if (!activeProfileId) return;
@@ -118,8 +119,31 @@ export const RegimenTimelineView: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero Next-Dose Action Card */}
-      {nextPending && nextMed ? (
+      {/* Hero Next-Dose Action Card or Welcome Empty State */}
+      {profileMeds.length === 0 ? (
+        <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm animate-fadeIn">
+          <div className="w-16 h-16 rounded-3xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto shadow-inner">
+            <Sparkles className="w-8 h-8 text-brand-500" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-xl font-black text-slate-900 dark:text-white">
+              Welcome, {activeProfile?.name || 'Friend'}!
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed font-medium">
+              You haven't scanned or added any prescription bottles yet. Point your camera at any pill bottle label to automatically build your daily schedule in 60 seconds with zero typing.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25"
+            >
+              <Plus className="w-4 h-4" />
+              <span>📷 Scan Prescription Bottle Now</span>
+            </button>
+          </div>
+        </div>
+      ) : nextPending && nextMed ? (
         <div className="relative p-6 rounded-3xl bg-white dark:bg-slate-900 border border-brand-500/40 shadow-xl shadow-brand-500/5 dark:shadow-brand-500/10 overflow-hidden pulse-dose">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -171,150 +195,129 @@ export const RegimenTimelineView: React.FC = () => {
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">All Caught Up for Today!</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">All scheduled doses for Eleanor have been logged.</p>
         </div>
       )}
 
-      {/* Floating Meal Trigger Fast Adjuster */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-            <Utensils className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-900 dark:text-white">Breakfast Anchor: {mealTimes.breakfast}</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Alarms auto-shift with your meal routine</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setShowMealAdjuster(!showMealAdjuster)}
-          className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
-        >
-          {showMealAdjuster ? 'Close' : 'Adjust'}
-        </button>
-      </div>
-
-      {showMealAdjuster && (
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-3 shadow-md">
-          <div>
-            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Breakfast</label>
-            <input
-              type="time"
-              value={mealTimes.breakfast}
-              onChange={(e) => updateMealTime('breakfast', e.target.value)}
-              className="mt-1 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-brand-500"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Dinner</label>
-            <input
-              type="time"
-              value={mealTimes.dinner}
-              onChange={(e) => updateMealTime('dinner', e.target.value)}
-              className="mt-1 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-brand-500"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Today's Chronological Routine */}
-      <div className="space-y-3">
-        <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Today's Schedule</h3>
-        
-        <div className="space-y-2.5">
-          {timeline.length === 0 ? (
-            <div className="p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm animate-fadeIn">
-              <div className="w-14 h-14 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto shadow-inner">
-                <Sparkles className="w-7 h-7" />
+      {/* When Profile Has Medications: Render Adjusters and Daily Schedule */}
+      {profileMeds.length > 0 && (
+        <>
+          {/* Floating Meal Trigger Fast Adjuster */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Utensils className="w-4 h-4" />
               </div>
-              <div className="space-y-1">
-                <h4 className="text-base font-black text-slate-900 dark:text-white">
-                  Welcome! Your Medication Cabinet is Clean & Ready
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-                  No active prescriptions or doses scheduled yet for {activeProfile?.name || 'this profile'}. Scan your first pharmacy bottle with your camera to begin.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                <button
-                  onClick={() => setScannerOpen(true)}
-                  className="py-3 px-5 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>📷 Scan Prescription Bottle</span>
-                </button>
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-white">Breakfast Anchor: {mealTimes.breakfast}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Alarms auto-shift with your meal routine</p>
               </div>
             </div>
-          ) : (
-            timeline.map((item) => {
-            const med = medications.find((m) => m.id === item.medicationId);
-            if (!med) return null;
 
-            const isTaken = item.status === 'taken';
-
-            return (
-              <div
-                key={item.ruleId}
-                className={`p-4 rounded-2xl border transition flex items-center justify-between shadow-sm ${
-                  isTaken
-                    ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
-                    : 'bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isTaken
-                      ? 'bg-brand-500/20 text-brand-600 dark:text-brand-400'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}>
-                    {isTaken ? <Check className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className={`text-sm font-bold ${isTaken ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                        {med.name}
-                      </h4>
-                      <span className="text-xs font-bold text-brand-600 dark:text-brand-400">{med.dosage_strength}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{item.displayTime}</span>
-                      {item.mealLabel && (
-                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-medium border border-slate-200/60 dark:border-slate-700">
-                          {item.mealLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {!isTaken ? (
-                  <button
-                    onClick={() => handleTakeDose(med.id, item.targetTime)}
-                    className="py-2 px-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-md shadow-brand-500/20 transition"
-                  >
-                    Take
-                  </button>
-                ) : (
-                  <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Taken</span>
-                )}
-              </div>
-            );
-          })
-          )}
-        </div>
-      </div>
-
-      {/* PRN Safety Guard Section */}
-      {prnMeds.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">PRN (As-Needed) Safety Guard</h3>
-          <div className="space-y-2.5">
-            {prnMeds.map((med) => (
-              <PrnLockoutCard key={med.id} medication={med} />
-            ))}
+            <button
+              onClick={() => setShowMealAdjuster(!showMealAdjuster)}
+              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
+            >
+              {showMealAdjuster ? 'Close' : 'Adjust'}
+            </button>
           </div>
-        </div>
+
+          {showMealAdjuster && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-3 shadow-md">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Breakfast</label>
+                <input
+                  type="time"
+                  value={mealTimes.breakfast}
+                  onChange={(e) => updateMealTime('breakfast', e.target.value)}
+                  className="mt-1 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Dinner</label>
+                <input
+                  type="time"
+                  value={mealTimes.dinner}
+                  onChange={(e) => updateMealTime('dinner', e.target.value)}
+                  className="mt-1 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Today's Chronological Routine */}
+          <div className="space-y-3">
+            <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Today's Schedule</h3>
+            
+            <div className="space-y-2.5">
+              {timeline.map((item) => {
+                const med = profileMeds.find((m) => m.id === item.medicationId);
+                if (!med) return null;
+
+                const isTaken = item.status === 'taken';
+
+                return (
+                  <div
+                    key={item.ruleId}
+                    className={`p-4 rounded-2xl border transition flex items-center justify-between shadow-sm ${
+                      isTaken
+                        ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
+                        : 'bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isTaken
+                          ? 'bg-brand-500/20 text-brand-600 dark:text-brand-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {isTaken ? <Check className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-sm font-bold ${isTaken ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                            {med.name}
+                          </h4>
+                          <span className="text-xs font-bold text-brand-600 dark:text-brand-400">{med.dosage_strength}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{item.displayTime}</span>
+                          {item.mealLabel && (
+                            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-medium border border-slate-200/60 dark:border-slate-700">
+                              {item.mealLabel}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {!isTaken ? (
+                      <button
+                        onClick={() => handleTakeDose(med.id, item.targetTime)}
+                        className="py-2 px-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-md shadow-brand-500/20 transition"
+                      >
+                        Take
+                      </button>
+                    ) : (
+                      <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Taken</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PRN Safety Guard Section */}
+          {prnMeds.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">PRN (As-Needed) Safety Guard</h3>
+              <div className="space-y-2.5">
+                {prnMeds.map((med) => (
+                  <PrnLockoutCard key={med.id} medication={med} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modals */}

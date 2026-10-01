@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Syncura Broadcast Studio</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: radial-gradient(circle at 15% 20%, #0f2b26 0%, #061512 40%, #030807 100%);
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      display: flex;
+      position: relative;
+    }
+
+    /* Ambient background glow */
+    .glow-sphere-1 {
+      position: absolute;
+      top: -100px;
+      left: 100px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(13, 148, 136, 0.25) 0%, transparent 70%);
+      filter: blur(60px);
+      pointer-events: none;
+    }
+    .glow-sphere-2 {
+      position: absolute;
+      bottom: -150px;
+      left: 400px;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.18) 0%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    /* Left Tile Column */
+    .tile-column {
+      width: 880px;
+      height: 1080px;
+      padding: 64px 72px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0d9488, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 0 24px rgba(13, 148, 136, 0.5);
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #ffffff, #99f6e4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hackathon-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(13, 148, 136, 0.15);
+      border: 1px solid rgba(45, 212, 191, 0.3);
+      color: #2dd4bf;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-left: auto;
+    }
+
+    /* Main Chapter Tile Card */
+    .chapter-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      padding: 44px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .chapter-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #0d9488, #06b6d4, #3b82f6);
+    }
+
+    .chapter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 6px 14px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .chapter-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.8px;
+      color: #ffffff;
+      margin-bottom: 18px;
+    }
+
+    .chapter-subtitle {
+      font-size: 18px;
+      line-height: 1.5;
+      color: #94a3b8;
+      margin-bottom: 28px;
+    }
+
+    .features-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 16px;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+    .feature-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: rgba(13, 148, 136, 0.25);
+      border: 1px solid rgba(45, 212, 191, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #2dd4bf;
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Meta Footer */
+    .tile-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 24px;
+    }
+    .judge-promo-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #fdba74;
+      background: rgba(234, 88, 12, 0.15);
+      border: 1px solid rgba(251, 146, 60, 0.3);
+      padding: 6px 14px;
+      border-radius: 8px;
+    }
+    .url-tag {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    /* Right Phone Column */
+    .phone-column {
+      flex: 1;
+      height: 1080px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* iPhone Frame */
+    .phone-bezel {
+      width: 440px;
+      height: 932px;
+      background: #090d16;
+      border-radius: 56px;
+      border: 12px solid #1e293b;
+      box-shadow: 
+        0 0 0 2px #334155,
+        0 25px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 80px rgba(13, 148, 136, 0.25);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Dynamic Island */
+    .phone-island {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 32px;
+      background: #000000;
+      border-radius: 20px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+    .island-camera {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #111827;
+      border: 1px solid #1f2937;
+    }
+
+    /* App Viewport */
+    .phone-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #020617;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-sphere-1"></div>
+  <div class="glow-sphere-2"></div>
+
+  <!-- Left Column: Chapter Tiles & Narrative -->
+  <div class="tile-column">
+    <div class="brand-header">
+      <div class="brand-logo">🧬</div>
+      <div class="brand-title">SYNCURA</div>
+      <div class="hackathon-badge">
+        <span>🏆 RevenueCat Ship-a-ton 2026</span>
+      </div>
+    </div>
+
+    <!-- Dynamic Chapter Tile Card -->
+    <div class="chapter-card" id="chapterCard">
+      <div class="chapter-pill" id="chapterPill">CHAPTER 01 OF 06</div>
+      <h1 class="chapter-title" id="chapterTitle">Dynamic Regimen & Floating Meal Routines</h1>
+      <p class="chapter-subtitle" id="chapterSubtitle">
+        Eliminating rigid 8:00 AM alarms. Syncura anchors medication routines to actual meals, preventing severe toxicity and collapsed spacing buffers.
+      </p>
+      <ul class="features-list" id="featuresList">
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <div><strong>Dynamic Anchors:</strong> Shifts morning meds forward if breakfast is delayed without colliding with bedtime doses.</div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <div><strong>1-Tap Adherence:</strong> Instant logging with double-dose idempotency lockout.</div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <div><strong>PRN Toxicity Ceiling:</strong> Automatically enforces safety spacing on rescue medications.</div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tile-footer">
+      <div class="judge-promo-tag" id="promoTag">Judge Unlock Code: SHIPATON2026</div>
+      <div class="url-tag">syncura.health</div>
+    </div>
+  </div>
+
+  <!-- Right Column: Live Interactive App Bezel -->
+  <div class="phone-column">
+    <div class="phone-bezel">
+      <div class="phone-island">
+        <div class="island-camera"></div>
+        <div style="width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9;"></div>
+      </div>
+      <iframe id="appIframe" class="phone-iframe" src="http://localhost:4173/"></iframe>
+    </div>
+  </div>
+
+  <script>
+    // Global controller function called by Playwright automation
+    window.setTileContent = function(data) {
+      document.getElementById('chapterPill').innerText = data.pill;
+      document.getElementById('chapterTitle').innerText = data.title;
+      document.getElementById('chapterSubtitle').innerText = data.subtitle;
+      if (data.promo) {
+        document.getElementById('promoTag').innerText = data.promo;
+      }
+      
+      const list = document.getElementById('featuresList');
+      list.innerHTML = '';
+      data.features.forEach(f => {
+        const li = document.createElement('li');
+        li.className = 'feature-item';
+        li.innerHTML = '<div class="feature-icon">✓</div><div>' + f + '</div>';
+        list.appendChild(li);
+      });
+    };
+  </script>
+</body>
+</html>

@@ -68,23 +68,46 @@ interface AlertsState {
   loadDemoAlerts: () => void;
 }
 
+const loadInitialAlerts = (): ClinicalAlert[] => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('syncura_alerts') : null;
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+const persistAlerts = (alerts: ClinicalAlert[]) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncura_alerts', JSON.stringify(alerts));
+    }
+  } catch (e) {}
+};
+
 export const useAlertsStore = create<AlertsState>((set, get) => ({
-  alerts: DEMO_ALERTS,
+  alerts: loadInitialAlerts(),
   isInboxOpen: false,
 
   openInbox: () => set({ isInboxOpen: true }),
   closeInbox: () => set({ isInboxOpen: false }),
 
   markAsRead: (alertId) => {
-    set((state) => ({
-      alerts: state.alerts.map((a) => (a.id === alertId ? { ...a, is_read: true } : a)),
-    }));
+    set((state) => {
+      const updated = state.alerts.map((a) => (a.id === alertId ? { ...a, is_read: true } : a));
+      persistAlerts(updated);
+      return { alerts: updated };
+    });
   },
 
   dismissAlert: (alertId) => {
-    set((state) => ({
-      alerts: state.alerts.filter((a) => a.id !== alertId),
-    }));
+    set((state) => {
+      const updated = state.alerts.filter((a) => a.id !== alertId);
+      persistAlerts(updated);
+      return { alerts: updated };
+    });
   },
 
   triggerSimulatedDangerousDrugAlert: () => {
@@ -102,10 +125,14 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
       created_at: new Date().toISOString(),
     };
 
-    set((state) => ({
-      alerts: [newCriticalAlert, ...state.alerts],
-      isInboxOpen: true,
-    }));
+    set((state) => {
+      const updated = [newCriticalAlert, ...state.alerts];
+      persistAlerts(updated);
+      return {
+        alerts: updated,
+        isInboxOpen: true,
+      };
+    });
   },
 
   getUnreadCount: () => {
@@ -113,10 +140,12 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
   },
 
   resetToEmpty: () => {
+    persistAlerts([]);
     set({ alerts: [] });
   },
 
   loadDemoAlerts: () => {
+    persistAlerts(DEMO_ALERTS);
     set({ alerts: DEMO_ALERTS });
   },
 }));

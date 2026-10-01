@@ -5,9 +5,11 @@ import { useAuthStore, UserAccountRole } from '@/stores/useAuthStore';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'switch_persona' | 'login' | 'signup';
+  onAuthenticated?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'switch_persona', onAuthenticated }) => {
   const {
     currentUser,
     isAuthenticated,
@@ -18,13 +20,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     isLoading,
   } = useAuthStore();
 
-  const [mode, setMode] = useState<'switch_persona' | 'login' | 'signup'>('switch_persona');
+  const [mode, setMode] = useState<'switch_persona' | 'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserAccountRole>('family_caregiver');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen && initialMode) {
+      setMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -42,10 +50,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     if (success) {
       setFeedback('Account created and credentialed successfully!');
+      onAuthenticated?.();
       setTimeout(() => {
         onClose();
         setFeedback(null);
-      }, 1000);
+      }, 500);
     }
   };
 
@@ -55,10 +64,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     await loginWithEmail(email.trim(), password);
     setFeedback('Logged in successfully!');
+    onAuthenticated?.();
     setTimeout(() => {
       onClose();
       setFeedback(null);
-    }, 800);
+    }, 500);
   };
 
   return (
@@ -166,6 +176,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={() => {
                   loginAsDemoPersona('david_caregiver');
+                  onAuthenticated?.();
                   onClose();
                 }}
                 className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-brand-500 text-left flex items-center justify-between transition group shadow-sm"
@@ -186,6 +197,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={() => {
                   loginAsDemoPersona('eleanor_senior');
+                  onAuthenticated?.();
                   onClose();
                 }}
                 className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-brand-500 text-left flex items-center justify-between transition group shadow-sm"
@@ -206,6 +218,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={() => {
                   loginAsDemoPersona('marcus_nurse');
+                  onAuthenticated?.();
                   onClose();
                 }}
                 className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-brand-500 text-left flex items-center justify-between transition group shadow-sm"

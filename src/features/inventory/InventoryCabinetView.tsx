@@ -47,8 +47,28 @@ export const InventoryCabinetView: React.FC = () => {
 
       {/* Medication List */}
       <div className="space-y-4">
-        {activeMeds.map((med) => {
-          const horizon = calculateBurnRateHorizon(med.id, med.is_prn ? 1 : 2);
+        {activeMeds.length === 0 ? (
+          <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm animate-fadeIn">
+            <div className="w-16 h-16 rounded-3xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto shadow-inner">
+              <Pill className="w-8 h-8 text-brand-500" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Cabinet is Empty</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed font-medium">
+                No active prescriptions in this cabinet yet. Point your camera at any prescription bottle to add it with automated refills, stock burn horizon, and interactions review.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsBottleScanOpen(true)}
+              className="py-3 px-6 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs transition inline-flex items-center gap-2 shadow-lg shadow-brand-500/25"
+            >
+              <Plus className="w-4 h-4" />
+              <span>📷 Scan Prescription Bottle</span>
+            </button>
+          </div>
+        ) : (
+          activeMeds.map((med) => {
+            const horizon = calculateBurnRateHorizon(med.id, med.is_prn ? 1 : 2);
 
           return (
             <div
@@ -137,7 +157,8 @@ export const InventoryCabinetView: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* Modals */}

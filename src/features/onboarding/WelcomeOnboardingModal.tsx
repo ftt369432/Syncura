@@ -69,6 +69,17 @@ export const WelcomeOnboardingModal: React.FC<WelcomeOnboardingModalProps> = ({
       currentProfile.chronic_conditions = selectedConditions;
     }
 
+    if (vaultType === 'personal' && currentUser && patientName.trim()) {
+      currentUser.fullName = patientName.trim();
+      try {
+        localStorage.setItem('syncura_session', JSON.stringify(currentUser));
+      } catch (e) {}
+    }
+
+    try {
+      localStorage.setItem('syncura_profiles', JSON.stringify(profiles));
+    } catch (e) {}
+
     setStep(3);
   };
 

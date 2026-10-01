@@ -7,8 +7,9 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => {
-  // Read initial theme from localStorage or default to dark
-  const initialTheme = (typeof window !== 'undefined' && (localStorage.getItem('syncura_theme') as 'dark' | 'light')) || 'dark';
+  // Read initial theme from localStorage or default to light
+  const saved = typeof window !== 'undefined' ? (localStorage.getItem('syncura_theme') as 'dark' | 'light') : null;
+  const initialTheme: 'dark' | 'light' = saved === 'dark' ? 'dark' : 'light';
 
   if (typeof window !== 'undefined') {
     if (initialTheme === 'dark') {

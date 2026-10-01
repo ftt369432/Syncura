@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { RegimenRule, DoseLog, DoseStatus } from '@/types';
 import { differenceInMinutes, differenceInHours, addMinutes, format } from 'date-fns';
 import { initialSeedData } from '@/data/seedData';
+import { useMedicationStore } from './useMedicationStore';
 
 interface RegimenState {
   rules: RegimenRule[];
@@ -35,49 +36,47 @@ interface RegimenState {
   loadDemoRegimen: () => void;
 }
 
+const loadInitialRules = (): RegimenRule[] => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('syncura_regimen_rules') : null;
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+const persistRules = (rules: RegimenRule[]) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncura_regimen_rules', JSON.stringify(rules));
+    }
+  } catch (e) {}
+};
+
+const loadInitialDoseLogs = (): DoseLog[] => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('syncura_dose_logs') : null;
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+const persistDoseLogs = (logs: DoseLog[]) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncura_dose_logs', JSON.stringify(logs));
+    }
+  } catch (e) {}
+};
+
 export const useRegimenStore = create<RegimenState>((set, get) => ({
-  rules: [
-    {
-      id: 'rule-1',
-      medication_id: 'med-1', // Levothyroxine (Empty stomach before breakfast)
-      rule_type: 'meal_relative',
-      meal_anchor: 'breakfast',
-      meal_offset_minutes: -30, // 30 mins before breakfast
-      dose_quantity: 1,
-      is_active: true,
-    },
-    {
-      id: 'rule-2',
-      medication_id: 'med-2', // Metformin (With breakfast)
-      rule_type: 'meal_relative',
-      meal_anchor: 'breakfast',
-      meal_offset_minutes: 15, // 15 mins with/after breakfast
-      dose_quantity: 1,
-      is_active: true,
-    },
-    {
-      id: 'rule-3',
-      medication_id: 'med-2', // Metformin (With dinner)
-      rule_type: 'meal_relative',
-      meal_anchor: 'dinner',
-      meal_offset_minutes: 15,
-      dose_quantity: 1,
-      is_active: true,
-    },
-  ],
-  doseLogs: [
-    {
-      id: 'log-1',
-      idempotency_key: `prof-mom_med-1_${new Date().toISOString().split('T')[0]}_0800`,
-      medication_id: 'med-1',
-      profile_id: 'prof-mom',
-      scheduled_time: new Date(new Date().setHours(8, 0, 0, 0)).toISOString(),
-      actual_time: new Date(new Date().setHours(8, 5, 0, 0)).toISOString(),
-      status: 'taken',
-      administered_by_name: 'Eleanor (Self)',
-      created_at: new Date(new Date().setHours(8, 5, 0, 0)).toISOString(),
-    },
-  ],
+  rules: loadInitialRules(),
+  doseLogs: loadInitialDoseLogs(),
   mealTimes: {
     breakfast: '08:30',
     lunch: '12:30',
@@ -99,9 +98,11 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
       ...ruleData,
       id: `rule-${Date.now()}`,
     };
-    set((state) => ({
-      rules: [...state.rules, newRule],
-    }));
+    set((state) => {
+      const updated = [...state.rules, newRule];
+      persistRules(updated);
+      return { rules: updated };
+    });
   },
 
   logDose: (medicationId, profileId, status, scheduledTime, notes) => {
@@ -113,14 +114,16 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
       scheduled_time: scheduledTime,
       actual_time: new Date().toISOString(),
       status,
-      administered_by_name: 'Eleanor (Self)',
+      administered_by_name: 'Patient/Caregiver',
       notes,
       created_at: new Date().toISOString(),
     };
 
-    set((state) => ({
-      doseLogs: [newLog, ...state.doseLogs],
-    }));
+    set((state) => {
+      const updated = [newLog, ...state.doseLogs];
+      persistDoseLogs(updated);
+      return { doseLogs: updated };
+    });
   },
 
   getPrnLockoutStatus: (medicationId, minIntervalHours) => {
@@ -153,9 +156,18 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
 
   getTodayTimeline: (profileId) => {
     const { rules, mealTimes, doseLogs } = get();
+    if (!profileId) return [];
+
+    // Filter rules to only include medications that belong to this profile
+    const profileMeds = useMedicationStore.getState().getMedicationsForProfile(profileId);
+    const profileMedIds = new Set(profileMeds.map((m) => m.id));
+    const relevantRules = rules.filter((r) => profileMedIds.has(r.medication_id) && r.is_active);
+
+    if (relevantRules.length === 0) return [];
+
     const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-    return rules.map((rule) => {
+    return relevantRules.map((rule) => {
       let targetTime = '09:00';
       let mealLabel: string | undefined;
 
@@ -179,8 +191,8 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
         targetTime = rule.fixed_time.slice(0, 5);
       }
 
-      // Check if logged for today
-      const existingLog = doseLogs.find((l) => l.medication_id === rule.medication_id);
+      // Check if logged for today for this specific profile
+      const existingLog = doseLogs.find((l) => l.medication_id === rule.medication_id && l.profile_id === profileId);
       const isTaken = existingLog && existingLog.status === 'taken';
       const status: DoseStatus = isTaken ? 'taken' : 'pending';
 
@@ -198,10 +210,14 @@ export const useRegimenStore = create<RegimenState>((set, get) => ({
   },
 
   resetToEmpty: () => {
+    persistRules([]);
+    persistDoseLogs([]);
     set({ rules: [], doseLogs: [] });
   },
 
   loadDemoRegimen: () => {
+    persistRules(initialSeedData.regimenRules);
+    persistDoseLogs(initialSeedData.doseLogs);
     set({ rules: initialSeedData.regimenRules, doseLogs: initialSeedData.doseLogs });
   },
 }));

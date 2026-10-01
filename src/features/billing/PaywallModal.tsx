@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Shield, Sparkles, Check, X, CreditCard, ArrowRight, Star, HeartHandshake, Building2, Lock, Zap, Gift, Crown, Clock, AlertTriangle, UserCheck, Stethoscope } from 'lucide-react';
-import { useBillingStore, SubscriptionTier, BillingCycle, PaywallCategory } from '@/stores/useBillingStore';
+import { Shield, Check, X, Building2, Lock, Zap, Crown, AlertTriangle, KeyRound, RotateCcw } from 'lucide-react';
+import { useBillingStore, SubscriptionTier } from '@/stores/useBillingStore';
+import { SyncuraPackageType } from '@/services/revenuecatService';
 
 export const PaywallModal: React.FC = () => {
   const {
@@ -11,6 +12,9 @@ export const PaywallModal: React.FC = () => {
     setBillingCycle,
     paywallCategory,
     setPaywallCategory,
+    purchaseViaRevenueCat,
+    redeemJudgePromoCode,
+    restorePurchases,
   } = useBillingStore();
 
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionTier>('family_swarm');
@@ -21,10 +25,14 @@ export const PaywallModal: React.FC = () => {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvc, setCardCvc] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [facilityNpi, setFacilityNpi] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'apple_pay'>('card');
+
+  // Hackathon Judge & Promo Code State
+  const [showPromoInput, setShowPromoInput] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoMessage, setPromoMessage] = useState<string | null>(null);
 
   if (!isPaywallOpen) return null;
 
@@ -43,32 +51,73 @@ export const PaywallModal: React.FC = () => {
     }
   };
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
 
-    setTimeout(() => {
-      let tierToSet: SubscriptionTier = selectedPlan;
-      if (paywallCategory === 'enterprise') {
-        tierToSet = 'enterprise_agency';
-      } else if (billingCycle === 'lifetime') {
-        tierToSet = 'lifetime_founder';
-      }
+    let pkg: SyncuraPackageType = 'family_monthly';
+    if (paywallCategory === 'enterprise') {
+      pkg = 'agency_monthly';
+    } else if (billingCycle === 'lifetime') {
+      pkg = 'lifetime_founder';
+    } else if (billingCycle === 'annual') {
+      pkg = 'family_annual';
+    }
 
-      upgradeTier(tierToSet);
+    try {
+      const result = await purchaseViaRevenueCat(pkg);
       setIsProcessing(false);
-      setSuccessNotice(
-        paywallCategory === 'enterprise'
-          ? '🏢 Enterprise Agency eMAR & EVV license activated! Commercial census unlocked.'
-          : billingCycle === 'lifetime'
-          ? '🎉 Welcome Founding Member! You now have Lifetime VIP access to Syncura.'
-          : '✓ 14-Day Free Trial activated! Your family is protected with Syncura.'
-      );
+
+      if (result.success) {
+        setSuccessNotice(
+          paywallCategory === 'enterprise'
+            ? '🏢 Enterprise Agency eMAR & EVV license activated via RevenueCat!'
+            : billingCycle === 'lifetime'
+            ? '🎉 Welcome Founding Member! Lifetime VIP unlocked via RevenueCat.'
+            : '✓ 14-Day Free Trial activated! Your family is protected with Syncura.'
+        );
+        setTimeout(() => {
+          setSuccessNotice(null);
+          closePaywall();
+        }, 1600);
+      } else {
+        alert(result.message || 'Payment could not be completed.');
+      }
+    } catch (err: any) {
+      setIsProcessing(false);
+      alert(err?.message || 'Payment error.');
+    }
+  };
+
+  const handleJudgeRedeem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoCode.trim()) return;
+
+    const res = redeemJudgePromoCode(promoCode);
+    setPromoMessage(res.message);
+
+    if (res.valid) {
+      setSuccessNotice(`✓ Judge Access Granted: ${promoCode.toUpperCase()}`);
       setTimeout(() => {
         setSuccessNotice(null);
         closePaywall();
       }, 1500);
-    }, 1200);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsProcessing(true);
+    const restored = await restorePurchases();
+    setIsProcessing(false);
+    if (restored) {
+      setSuccessNotice('✓ Active RevenueCat purchases restored successfully.');
+      setTimeout(() => {
+        setSuccessNotice(null);
+        closePaywall();
+      }, 1500);
+    } else {
+      alert('No previous active purchases found for this account.');
+    }
   };
 
   return (
@@ -143,23 +192,58 @@ export const PaywallModal: React.FC = () => {
             </div>
           )}
 
-          {/* ============================================================ */}
-          {/* BRACKET A: HEALTHCARE AGENCIES & COMMERCIAL ORGANIZATIONS     */}
-          {/* ============================================================ */}
+          {/* Devpost Judge / Promo Bypass Bar */}
+          <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-900 dark:text-purple-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="font-bold text-[11px]">Ship-a-ton Judge or Promo Code?</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPromoInput(!showPromoInput)}
+                className="text-[10px] font-black underline hover:text-purple-500"
+              >
+                {showPromoInput ? 'Hide' : 'Enter Code'}
+              </button>
+            </div>
+            {showPromoInput && (
+              <form onSubmit={handleJudgeRedeem} className="mt-2.5 flex items-center gap-2 animate-fadeIn">
+                <input
+                  type="text"
+                  placeholder="Code: SHIPATON2026 or DEVPOST2026"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-950 border border-purple-500/30 text-xs font-mono font-bold uppercase focus:outline-none focus:border-purple-500"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition shadow-sm"
+                >
+                  Unlock
+                </button>
+              </form>
+            )}
+            {promoMessage && (
+              <p className="mt-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+                {promoMessage}
+              </p>
+            )}
+          </div>
+
+          {/* Category: Commercial Agency */}
           {paywallCategory === 'enterprise' ? (
             <div className="space-y-4 animate-fadeIn">
-              {/* Anti-Freeloading Hardwall Notice */}
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-500/30 flex items-start gap-2.5 text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
                   <h5 className="font-black text-xs">Commercial Healthcare Entity License Policy</h5>
                   <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-                    Consumer free trials and Lifetime Founder coupons are strictly prohibited for commercial use. Health organizations, home health agencies, assisted living facilities, and nurse staffing registries are legally required to maintain an active Enterprise eMAR license.
+                    Health organizations, home health agencies, assisted living facilities, and nurse registries require an active Enterprise eMAR license.
                   </p>
                 </div>
               </div>
 
-              {/* Enterprise Plan Card */}
               <div className="p-5 rounded-3xl border-2 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 space-y-3.5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
@@ -171,8 +255,8 @@ export const PaywallModal: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black text-slate-900 dark:text-white">$199</span>
-                    <span className="text-[11px] text-slate-500 font-semibold"> / month</span>
-                    <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">+ $15 / active nurse seat</p>
+                    <span className="text-[11px] text-slate-500 font-semibold"> / mo</span>
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">RevenueCat B2B</p>
                   </div>
                 </div>
 
@@ -189,18 +273,9 @@ export const PaywallModal: React.FC = () => {
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                     <span><strong>Multi-Resident Shift Census Roster</strong> (Unlimited beds & homes)</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span><strong>Schedule II Narcotic Dual-Witness Sign-Off</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span><strong>Signed HIPAA Business Associate Agreement (BAA)</strong></span>
-                  </li>
                 </ul>
               </div>
 
-              {/* Organization Verification Inputs */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
@@ -208,8 +283,7 @@ export const PaywallModal: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Pinnacle Home Health LLC"
+                    placeholder="e.g. Apex Health Group LLC"
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none focus:border-emerald-500"
@@ -230,17 +304,14 @@ export const PaywallModal: React.FC = () => {
               </div>
             </div>
           ) : (
-            /* ============================================================ */
-            /* BRACKET B: DOMESTIC FAMILY & PERSONAL CARE                    */
-            /* ============================================================ */
+            /* Category: Domestic Family Care */
             <div className="space-y-4 animate-fadeIn">
-              {/* Domestic Non-Commercial Notice */}
               <div className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-brand-500 shrink-0" />
-                <span><strong>Domestic Non-Commercial License:</strong> For families caring for up to 5 relatives. Commercial agencies require the Agency Bracket.</span>
+                <span><strong>Domestic Non-Commercial License:</strong> Supports up to 5 family members.</span>
               </div>
 
-              {/* Billing Interval Toggle (Monthly / Annual / Lifetime) */}
+              {/* Interval Switcher */}
               <div className="p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 grid grid-cols-3 gap-1 text-center font-bold">
                 <button
                   type="button"
@@ -284,143 +355,109 @@ export const PaywallModal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Lifetime Pass or Monthly/Annual */}
               {billingCycle === 'lifetime' ? (
                 <div className="p-5 rounded-3xl border-2 border-amber-500 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent space-y-3.5 shadow-sm ring-2 ring-amber-500/20 animate-fadeIn">
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
-                        <Star className="w-3 h-3 fill-current" /> Early-Bird Founder's Pass (First 250 Families)
-                      </span>
-                      <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">Pay Once, Protect Forever</h4>
-                      <p className="text-xs text-slate-600 dark:text-slate-300">Domestic family license • Zero monthly subscription fees</p>
+                      <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">Founder's Lifetime Pass</h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">Domestic family license • Zero recurring subscription</p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-black text-amber-600 dark:text-amber-400">$149</div>
                       <span className="text-[10px] text-slate-500 uppercase font-bold">One-Time Fee</span>
                     </div>
                   </div>
-
                   <ul className="space-y-1.5 pt-1 text-slate-700 dark:text-slate-200">
                     <li className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span><strong>Permanent Family Vault for up to 5 family members</strong></span>
+                      <span>Permanent Family Vault for up to 5 family members</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span><strong>Permanent Access to AI Health Advocate & Voice Intake</strong></span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span><strong>All Future Consumer Updates Included</strong></span>
+                      <span>Permanent Access to AI Health Advocate & Voice Intake</span>
                     </li>
                   </ul>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {/* Plan 1: Family Swarm */}
-                  <div
-                    onClick={() => setSelectedPlan('family_swarm')}
-                    className={`p-4 md:p-5 rounded-3xl border-2 cursor-pointer transition space-y-2.5 relative shadow-sm ${
-                      selectedPlan === 'family_swarm'
-                        ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/30 ring-2 ring-brand-500/20'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                          Most Popular For Families
-                        </span>
-                        <h4 className="text-base md:text-lg font-black text-slate-900 dark:text-white">Family Swarm Care</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Complete coordination for aging parents & siblings</p>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white">
-                          {billingCycle === 'annual' ? '$89' : '$9.99'}
-                        </span>
-                        <span className="text-[11px] text-slate-500 font-semibold">
-                          {billingCycle === 'annual' ? ' / year' : ' / month'}
-                        </span>
-                      </div>
+                <div
+                  onClick={() => setSelectedPlan('family_swarm')}
+                  className={`p-4 md:p-5 rounded-3xl border-2 cursor-pointer transition space-y-2.5 relative shadow-sm ${
+                    selectedPlan === 'family_swarm'
+                      ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/30 ring-2 ring-brand-500/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                        Most Popular For Families
+                      </span>
+                      <h4 className="text-base md:text-lg font-black text-slate-900 dark:text-white">Family Swarm Care</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Complete coordination for aging parents & siblings</p>
                     </div>
-
-                    <ul className="space-y-1.5 pt-1 text-slate-700 dark:text-slate-300">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-brand-500 shrink-0" />
-                        <span><strong>14-Day Free Trial</strong> (Cancel anytime with 1 tap)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-brand-500 shrink-0" />
-                        <span><strong>Bottle Label OCR & Clinical Allergy Shield</strong></span>
-                      </li>
-                    </ul>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {billingCycle === 'annual' ? '$89' : '$9.99'}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-semibold">
+                        {billingCycle === 'annual' ? ' / yr' : ' / mo'}
+                      </span>
+                    </div>
                   </div>
+                  <ul className="space-y-1.5 pt-1 text-slate-700 dark:text-slate-300">
+                    <li className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-brand-500 shrink-0" />
+                      <span>60-Second Bottle OCR & Physical Pill-Tray Vision Auditing</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-brand-500 shrink-0" />
+                      <span>Drug-Drug Interaction & Food/Empty-Stomach Timing Shield</span>
+                    </li>
+                  </ul>
                 </div>
               )}
             </div>
           )}
 
-          {/* Interactive Payment Method / Credit Card Form */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+          {/* Payment Method Selector */}
+          <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-brand-500" />
-                Payment Method
-              </span>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold">
-                <Lock className="w-3 h-3 text-emerald-500" /> 256-Bit SSL Encrypted
+              <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Payment Channel</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('card')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                    paymentMethod === 'card'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  Card / In-App
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('apple_pay')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                    paymentMethod === 'apple_pay'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  Apple / Google Pay
+                </button>
               </div>
             </div>
 
-            {/* Payment Method Selector */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card')}
-                className={`py-2 px-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition ${
-                  paymentMethod === 'card'
-                    ? 'border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" /> Credit / Debit Card
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('apple_pay')}
-                className={`py-2 px-3 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition ${
-                  paymentMethod === 'apple_pay'
-                    ? 'border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                <span> Pay / G Pay</span>
-              </button>
-            </div>
-
-            {/* Credit Card Input Fields */}
-            {paymentMethod === 'card' ? (
-              <div className="space-y-2.5 pt-1">
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Cardholder Full Name"
-                    value={cardholderName}
-                    onChange={(e) => setCardholderName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-medium focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Card Number (0000 0000 0000 0000)"
-                    value={cardNumber}
-                    onChange={handleCardNumberChange}
-                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-mono font-medium focus:outline-none focus:border-brand-500 tracking-wider"
-                  />
-                </div>
+            {paymentMethod === 'card' && (
+              <div className="space-y-2 pt-1">
+                <input
+                  type="text"
+                  placeholder="Card Number •••• •••• •••• ••••"
+                  value={cardNumber}
+                  onChange={handleCardNumberChange}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-mono font-medium focus:outline-none focus:border-brand-500"
+                />
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
@@ -432,18 +469,12 @@ export const PaywallModal: React.FC = () => {
                   <input
                     type="password"
                     maxLength={4}
-                    placeholder="CVC / CVV"
+                    placeholder="CVC"
                     value={cardCvc}
                     onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, ''))}
                     className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-mono font-medium focus:outline-none focus:border-brand-500 text-center"
                   />
                 </div>
-              </div>
-            ) : (
-              <div className="py-3 text-center text-slate-500 space-y-1">
-                <Zap className="w-5 h-5 text-brand-500 mx-auto fill-current" />
-                <p className="font-bold text-slate-700 dark:text-slate-300 text-xs">Ready for Apple Pay / Google Pay</p>
-                <p className="text-[10px]">1-Tap biometric authentication upon checkout.</p>
               </div>
             )}
           </div>
@@ -464,7 +495,7 @@ export const PaywallModal: React.FC = () => {
           >
             {isProcessing ? (
               <span className="flex items-center gap-2">
-                <Zap className="w-4 h-4 fill-current animate-spin" /> Authorizing Payment...
+                <Zap className="w-4 h-4 fill-current animate-spin" /> Processing via RevenueCat...
               </span>
             ) : paywallCategory === 'enterprise' ? (
               <span className="flex items-center gap-2">
@@ -482,9 +513,18 @@ export const PaywallModal: React.FC = () => {
             )}
           </button>
 
-          <p className="text-[10px] text-center text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
-            <Lock className="w-3 h-3 text-brand-500" /> Powered by Stripe • Terms of Service & Commercial Use Policies Apply
-          </p>
+          <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 px-1">
+            <span className="flex items-center gap-1">
+              <Lock className="w-3 h-3 text-brand-500" /> Powered by RevenueCat & Stripe
+            </span>
+            <button
+              type="button"
+              onClick={handleRestore}
+              className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 underline font-semibold"
+            >
+              <RotateCcw className="w-2.5 h-2.5" /> Restore Purchases
+            </button>
+          </div>
         </div>
       </div>
     </div>

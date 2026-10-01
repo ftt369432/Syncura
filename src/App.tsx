@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Pill, Activity, ShieldCheck, FileText, HeartHandshake, PhoneCall, Sun, Moon, Sparkles, Building2, User, Cloud, Database, QrCode, Shield, Home, LayoutDashboard, Zap, Bell, ChevronDown, Check, LogOut, ArrowRight } from 'lucide-react';
+import { Pill, Activity, ShieldCheck, FileText, HeartHandshake, PhoneCall, Sun, Moon, Sparkles, Building2, User, Cloud, Database, QrCode, Shield, Home, LayoutDashboard, Zap, Bell, ChevronDown, Check, LogOut, ArrowRight, Plus } from 'lucide-react';
 import { RegimenTimelineView } from '@/features/regimens/RegimenTimelineView';
 import { BiometricTelemetryHubView } from '@/features/telemetry/BiometricTelemetryHubView';
 import { InventoryCabinetView } from '@/features/inventory/InventoryCabinetView';
@@ -27,7 +27,11 @@ import { useAlertsStore } from '@/stores/useAlertsStore';
 import { useHouseholdStore } from '@/stores/useHouseholdStore';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'landing' | 'app'>('app');
+  const { currentUser, isDemoMode, loginAsDemoPersona, logout, isOnboardingOpen, closeOnboarding } = useAuthStore();
+  const [currentView, setCurrentView] = useState<'landing' | 'app'>(() => {
+    return useAuthStore.getState().currentUser ? 'app' : 'landing';
+  });
+  const [authModalMode, setAuthModalMode] = useState<'switch_persona' | 'login' | 'signup'>('login');
   const [activeTab, setActiveTab] = useState<'today' | 'vitals' | 'cabinet' | 'family' | 'vault' | 'emergency' | 'agency'>('today');
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -43,12 +47,29 @@ export default function App() {
   const { theme, toggleTheme } = useThemeStore();
   const { isEnterpriseMode, toggleEnterpriseMode } = useEnterpriseStore();
   const { connectionStatus } = useCloudConfigStore();
-  const { currentUser, loginAsDemoPersona, logout, isOnboardingOpen, closeOnboarding } = useAuthStore();
   const { openPaywall } = useBillingStore();
   const { openInbox, getUnreadCount } = useAlertsStore();
-  const { isPairingModalOpen: isHouseholdPairingOpen, closePairingModal } = useHouseholdStore();
+  const { isPairingModalOpen: isHouseholdPairingOpen, closePairingModal, profiles, activeProfileId, setActiveProfile, openAddMemberModal, openPairingModal } = useHouseholdStore();
 
   const unreadAlerts = getUnreadCount();
+
+  // Initialize RevenueCat SDK on launch
+  useEffect(() => {
+    useBillingStore.getState().initializeRevenueCat(currentUser?.id);
+  }, [currentUser?.id]);
+
+  // Keep authenticated users on dashboard unless they explicitly choose Overview
+  useEffect(() => {
+    if (currentUser) {
+      setCurrentView('app');
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (isOnboardingOpen) {
+      setCurrentView('app');
+    }
+  }, [isOnboardingOpen]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -202,28 +223,61 @@ export default function App() {
             </button>
 
             {/* 3. Unified Profile & System Control Menu */}
+            {currentUser && currentView === 'landing' && (
+              <button
+                onClick={() => {
+                  setCurrentView('app');
+                  setActiveTab('today');
+                }}
+                className="py-1.5 px-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm transition"
+              >
+                <span>Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             <div className="relative" ref={profileMenuRef}>
               {currentUser ? (
                 <button
                   onClick={() => setIsProfileQuickMenuOpen(!isProfileQuickMenuOpen)}
-                  className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 transition flex items-center gap-1 shadow-sm"
-                  title="Account & Quick Settings"
+                  className="p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 transition flex items-center gap-1.5 shadow-sm"
+                  title="Account & Family Settings"
                 >
-                  <img
-                    src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-                    alt="User"
-                    className="w-6 h-6 rounded-xl object-cover"
-                  />
-                  <ChevronDown className="w-3 h-3 text-slate-400 mr-1" />
+                  {currentUser.avatarUrl && isDemoMode ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt="User"
+                      className="w-6 h-6 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-xl bg-gradient-to-tr from-brand-500 to-emerald-400 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-inner">
+                      {(currentUser.fullName || 'User').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <ChevronDown className="w-3 h-3 text-slate-400 mr-0.5" />
                 </button>
               ) : (
-                <button
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="py-1.5 px-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('login');
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="py-1.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 shadow-sm transition border border-slate-200 dark:border-slate-700"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Sign In</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="py-1.5 px-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm transition"
+                  >
+                    <span>Start Free</span>
+                  </button>
+                </div>
               )}
 
               {/* Profile & Settings Dropdown */}
@@ -231,84 +285,131 @@ export default function App() {
                 <div className="absolute right-0 mt-2 w-72 p-3 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 text-xs space-y-3 animate-fadeIn">
                   {/* User Badge */}
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-                        alt={currentUser.fullName}
-                        className="w-9 h-9 rounded-xl object-cover ring-2 ring-brand-500/20"
-                      />
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-xs">{currentUser.fullName}</h4>
-                        <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-1.5 py-0.2 rounded">
-                          {currentUser.role.toUpperCase()}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {currentUser.avatarUrl && isDemoMode ? (
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.fullName}
+                          className="w-9 h-9 rounded-xl object-cover ring-2 ring-brand-500/20 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-500 to-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shrink-0">
+                          {(currentUser.fullName || 'User').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-xs truncate">{currentUser.fullName}</h4>
+                        <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+                        <span className="inline-block mt-0.5 text-[9px] font-bold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-1.5 py-0.2 rounded">
+                          Family Vault Owner
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 1-Tap Personas Strip */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block px-1">Switch Persona</span>
-                    <div className="grid grid-cols-3 gap-1 text-[11px] font-bold text-center">
-                      <button
-                        onClick={() => {
-                          loginAsDemoPersona('david_caregiver');
-                          if (isEnterpriseMode) toggleEnterpriseMode();
-                          setIsProfileQuickMenuOpen(false);
-                        }}
-                        className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
-                      >
-                        👨‍💼 David
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginAsDemoPersona('eleanor_senior');
-                          if (isEnterpriseMode) toggleEnterpriseMode();
-                          setIsProfileQuickMenuOpen(false);
-                        }}
-                        className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
-                      >
-                        👵 Eleanor
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginAsDemoPersona('marcus_nurse');
-                          if (!isEnterpriseMode) toggleEnterpriseMode();
-                          setActiveTab('agency');
-                          setIsProfileQuickMenuOpen(false);
-                        }}
-                        className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
-                      >
-                        🩺 Nurse RN
-                      </button>
+                  {/* If Demo Mode is Active, show the Sandbox Personas Strip. If Real User, show Household Members */}
+                  {isDemoMode ? (
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 block px-1">Demo Persona Sandbox</span>
+                      <div className="grid grid-cols-3 gap-1 text-[11px] font-bold text-center">
+                        <button
+                          onClick={() => {
+                            loginAsDemoPersona('david_caregiver');
+                            if (isEnterpriseMode) toggleEnterpriseMode();
+                            setIsProfileQuickMenuOpen(false);
+                          }}
+                          className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
+                        >
+                          👨‍💼 David
+                        </button>
+                        <button
+                          onClick={() => {
+                            loginAsDemoPersona('eleanor_senior');
+                            if (isEnterpriseMode) toggleEnterpriseMode();
+                            setIsProfileQuickMenuOpen(false);
+                          }}
+                          className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
+                        >
+                          👵 Eleanor
+                        </button>
+                        <button
+                          onClick={() => {
+                            loginAsDemoPersona('marcus_nurse');
+                            if (!isEnterpriseMode) toggleEnterpriseMode();
+                            setActiveTab('agency');
+                            setIsProfileQuickMenuOpen(false);
+                          }}
+                          className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-500 hover:text-slate-950 transition"
+                        >
+                          🩺 Nurse RN
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Household Family</span>
+                        <button
+                          onClick={() => {
+                            openAddMemberModal();
+                            setIsProfileQuickMenuOpen(false);
+                          }}
+                          className="text-[10px] font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-0.5"
+                        >
+                          <Plus className="w-3 h-3" /> Add Member
+                        </button>
+                      </div>
+                      <div className="space-y-1 max-h-36 overflow-y-auto scrollbar-thin">
+                        {profiles.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              setActiveProfile(p.id);
+                              setIsProfileQuickMenuOpen(false);
+                            }}
+                            className={`w-full p-2 rounded-xl text-left flex items-center justify-between transition ${
+                              p.id === activeProfileId
+                                ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 font-bold border border-brand-500/30'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />
+                              <span className="truncate">{p.name}</span>
+                            </span>
+                            {p.id === activeProfileId && (
+                              <span className="text-[9px] font-bold bg-brand-500 text-slate-950 px-1.5 py-0.5 rounded shrink-0">Active</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Quick System Tools */}
+                  {/* Family Quick Tools */}
                   <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
                     <button
                       onClick={() => {
-                        setIsPairingModalOpen(true);
+                        openAddMemberModal();
                         setIsProfileQuickMenuOpen(false);
                       }}
                       className="w-full p-2 rounded-xl text-left font-bold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition"
                     >
                       <span className="flex items-center gap-2">
-                        <QrCode className="w-4 h-4 text-brand-500" /> Caregiver QR Pairing
+                        <Plus className="w-4 h-4 text-brand-500" /> Add Family Member / Parent
                       </span>
                     </button>
 
                     <button
                       onClick={() => {
-                        setIsCloudModalOpen(true);
+                        openPairingModal();
                         setIsProfileQuickMenuOpen(false);
                       }}
                       className="w-full p-2 rounded-xl text-left font-bold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition"
                     >
                       <span className="flex items-center gap-2">
-                        <Cloud className="w-4 h-4 text-sky-500" /> Supabase Cloud Database
+                        <QrCode className="w-4 h-4 text-emerald-500" /> Caregiver QR Pairing
                       </span>
-                      <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                     </button>
 
                     <button
@@ -329,7 +430,7 @@ export default function App() {
                       className="w-full p-2 rounded-xl text-left font-bold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition"
                     >
                       <span className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-purple-500" /> Account & Credentials
+                        <Shield className="w-4 h-4 text-purple-500" /> Vault Security & Keys
                       </span>
                     </button>
 
@@ -354,16 +455,66 @@ export default function App() {
         </div>
       </header>
 
+      {/* Demo Mode Notice Bar */}
+      {isDemoMode && currentView === 'app' && (
+        <div className="bg-brand-500/15 border-b border-brand-500/30 px-4 py-2 text-xs">
+          <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-brand-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                Demo Mode
+              </span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                Previewing sample vault as <strong className="font-bold">{currentUser?.fullName}</strong>.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setAuthModalMode('switch_persona');
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold hover:border-brand-500 transition shadow-sm text-[11px]"
+              >
+                Switch Persona
+              </button>
+              <button
+                onClick={() => {
+                  setAuthModalMode('signup');
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3 py-1 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-black transition shadow-sm text-[11px]"
+              >
+                Create Real Vault
+              </button>
+              <button
+                onClick={() => setCurrentView('landing')}
+                className="px-2 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition text-[11px] font-semibold"
+              >
+                Overview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 pt-5">
         {currentView === 'landing' ? (
           <LandingPageView
+            currentUser={currentUser}
             onLaunchApp={() => {
+              setCurrentView('app');
+              setActiveTab('today');
+            }}
+            onLaunchCaregiverMode={() => {
+              loginAsDemoPersona('david_caregiver');
+              if (isEnterpriseMode) toggleEnterpriseMode();
               setCurrentView('app');
               setActiveTab('today');
             }}
             onLaunchSeniorMode={() => {
               loginAsDemoPersona('eleanor_senior');
+              if (isEnterpriseMode) toggleEnterpriseMode();
               setCurrentView('app');
               setActiveTab('today');
             }}
@@ -373,14 +524,33 @@ export default function App() {
               setCurrentView('app');
               setActiveTab('agency');
             }}
+            onSignIn={() => {
+              setAuthModalMode('login');
+              setIsAuthModalOpen(true);
+            }}
+            onSignUp={() => {
+              setAuthModalMode('signup');
+              setIsAuthModalOpen(true);
+            }}
+            onOpenPricing={() => openPaywall()}
           />
         ) : !currentUser ? (
           <LoggedOutAuthGateView
-            onSignIn={() => setIsAuthModalOpen(true)}
-            onSignUp={() => setIsAuthModalOpen(true)}
+            onSignIn={() => {
+              setAuthModalMode('login');
+              setIsAuthModalOpen(true);
+            }}
+            onSignUp={() => {
+              setAuthModalMode('signup');
+              setIsAuthModalOpen(true);
+            }}
             onPairQrCode={() => setIsPairingModalOpen(true)}
             onOpenPaywall={() => openPaywall()}
-            onDemoPreview={() => loginAsDemoPersona('david_caregiver')}
+            onDemoPreview={() => {
+              loginAsDemoPersona('david_caregiver');
+              setCurrentView('app');
+              setActiveTab('today');
+            }}
           />
         ) : (
           <div className="max-w-lg mx-auto">
@@ -481,7 +651,13 @@ export default function App() {
       />
       <AuthModal
         isOpen={isAuthModalOpen}
+        initialMode={authModalMode}
         onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticated={() => {
+          setIsAuthModalOpen(false);
+          setCurrentView('app');
+          setActiveTab('today');
+        }}
       />
       <CaregiverQrPairingModal
         isOpen={isPairingModalOpen || isHouseholdPairingOpen}
@@ -493,8 +669,17 @@ export default function App() {
       <AddFamilyMemberModal />
       <WelcomeOnboardingModal
         isOpen={isOnboardingOpen}
-        onClose={closeOnboarding}
-        onOpenBottleScanner={() => setIsOnboardingBottleScannerOpen(true)}
+        onClose={() => {
+          closeOnboarding();
+          setCurrentView('app');
+          setActiveTab('today');
+        }}
+        onOpenBottleScanner={() => {
+          closeOnboarding();
+          setCurrentView('app');
+          setActiveTab('today');
+          setIsOnboardingBottleScannerOpen(true);
+        }}
       />
       <BottleScannerModal
         isOpen={isOnboardingBottleScannerOpen}

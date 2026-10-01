@@ -21,6 +21,7 @@ export interface UserSession {
 interface AuthState {
   isAuthenticated: boolean;
   currentUser: UserSession | null;
+  isDemoMode: boolean;
   isLoading: boolean;
   error: string | null;
   isOnboardingOpen: boolean;
@@ -39,17 +40,48 @@ interface AuthState {
   linkHouseholdToUser: (householdId: string) => void;
 }
 
+const loadStoredSession = (): UserSession | null => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('syncura_session') : null;
+    if (raw) {
+      const parsed: UserSession = JSON.parse(raw);
+
+      // Auto-heal / synchronize fullName if user previously had email prefix like 'pinnacleconsulting432'
+      try {
+        const rawProfiles = localStorage.getItem('syncura_profiles');
+        if (rawProfiles) {
+          const profiles = JSON.parse(rawProfiles);
+          if (Array.isArray(profiles) && profiles.length > 0 && profiles[0].name) {
+            const cleanName = profiles[0].name.trim();
+            if (cleanName && (!parsed.fullName || parsed.fullName.includes('@') || parsed.fullName === parsed.email.split('@')[0])) {
+              parsed.fullName = cleanName;
+            }
+          }
+        }
+      } catch (e) {}
+
+      // If this is a real user (not explicitly a demo persona ID), do not default to David's stock photo
+      if (parsed.id && !parsed.id.startsWith('user-david') && !parsed.id.startsWith('user-eleanor') && !parsed.id.startsWith('staff-1')) {
+        if (parsed.avatarUrl?.includes('photo-1507003211169-0a1dd7228f2d')) {
+          delete parsed.avatarUrl;
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('syncura_session', JSON.stringify(parsed));
+      }
+      return parsed;
+    }
+  } catch (e) {}
+  return null;
+};
+
+const initialSession = loadStoredSession();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  isAuthenticated: true, // Default to demo session for instant testing
-  currentUser: {
-    id: 'user-david-101',
-    email: 'david.miller@pinnacle.com',
-    fullName: 'David Miller',
-    role: 'family_admin',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    linkedHouseholdIds: ['hh-101'],
-    createdAt: new Date().toISOString(),
-  },
+  isAuthenticated: !!initialSession,
+  currentUser: initialSession,
+  isDemoMode: false,
   isLoading: false,
   error: null,
   isOnboardingOpen: false,
@@ -78,7 +110,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             linkedHouseholdIds: ['hh-101'],
             createdAt: data.user.created_at,
           };
-          set({ isAuthenticated: true, currentUser: session, isLoading: false });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('syncura_session', JSON.stringify(session));
+          }
+          set({ isAuthenticated: true, currentUser: session, isDemoMode: false, isLoading: false });
           return true;
         }
       } catch (err: any) {
@@ -103,17 +138,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useRegimenStore.getState().loadDemoRegimen();
       useAlertsStore.getState().loadDemoAlerts();
     } else {
+      // Check if existing profile name exists in storage
+      let preferredName = email.split('@')[0];
+      try {
+        const rawProfiles = localStorage.getItem('syncura_profiles');
+        if (rawProfiles) {
+          const profiles = JSON.parse(rawProfiles);
+          if (Array.isArray(profiles) && profiles.length > 0 && profiles[0].name) {
+            preferredName = profiles[0].name;
+          }
+        }
+      } catch (e) {}
+
       session = {
         id: `user-${Date.now()}`,
         email,
-        fullName: email.split('@')[0],
+        fullName: preferredName,
         role: 'family_admin',
         linkedHouseholdIds: ['hh-101'],
         createdAt: new Date().toISOString(),
       };
     }
 
-    set({ isAuthenticated: true, currentUser: session, isLoading: false });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncura_session', JSON.stringify(session));
+    }
+    set({ isAuthenticated: true, currentUser: session, isDemoMode: false, isLoading: false });
     return true;
   },
 
@@ -158,7 +208,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             linkedHouseholdIds: [newHouseholdId],
             createdAt: new Date().toISOString(),
           };
-          set({ isAuthenticated: true, currentUser: session, isLoading: false, isOnboardingOpen: true });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('syncura_session', JSON.stringify(session));
+          }
+          set({ isAuthenticated: true, currentUser: session, isDemoMode: false, isLoading: false, isOnboardingOpen: true });
           return true;
         }
       } catch (err: any) {
@@ -176,7 +229,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       linkedHouseholdIds: [newHouseholdId],
       createdAt: new Date().toISOString(),
     };
-    set({ isAuthenticated: true, currentUser: session, isLoading: false, isOnboardingOpen: true });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncura_session', JSON.stringify(session));
+    }
+    set({ isAuthenticated: true, currentUser: session, isDemoMode: false, isLoading: false, isOnboardingOpen: true });
     return true;
   },
 
@@ -184,6 +240,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (persona === 'david_caregiver') {
       set({
         isAuthenticated: true,
+        isDemoMode: true,
         currentUser: {
           id: 'user-david-101',
           email: 'david.miller@pinnacle.com',
@@ -202,6 +259,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } else if (persona === 'eleanor_senior') {
       set({
         isAuthenticated: true,
+        isDemoMode: true,
         currentUser: {
           id: 'user-eleanor-52',
           email: 'eleanor.miller52@gmail.com',
@@ -220,6 +278,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } else if (persona === 'marcus_nurse') {
       set({
         isAuthenticated: true,
+        isDemoMode: true,
         currentUser: {
           id: 'staff-1',
           email: 'marcus.rivera.rn@pinnaclehealth.org',
@@ -244,7 +303,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (supabase) {
       supabase.auth.signOut().catch(() => {});
     }
-    set({ isAuthenticated: false, currentUser: null, isOnboardingOpen: false });
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('syncura_session');
+    }
+    set({ isAuthenticated: false, currentUser: null, isDemoMode: false, isOnboardingOpen: false });
   },
 
   linkHouseholdToUser: (householdId) => {
